@@ -1,0 +1,32 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+TestResults/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# Node / frontend
+node_modules/
+dist/
+coverage/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Read-only reference material (never committed)
+references/
+
+# OS
+.DS_Store
+Thumbs.db
+
+
+# Generated FHIR examples (written by tests, validated in CI)
+artifacts/

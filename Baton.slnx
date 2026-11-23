@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Baton.Api/Baton.Api.csproj" />
+    <Project Path="src/Baton.Core/Baton.Core.csproj" />
+    <Project Path="src/Baton.Fhir/Baton.Fhir.csproj" />
+    <Project Path="src/Baton.Scenarios.Cli/Baton.Scenarios.Cli.csproj" />
+    <Project Path="src/Baton.Scenarios/Baton.Scenarios.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Baton.Api.Tests/Baton.Api.Tests.csproj" />
+    <Project Path="tests/Baton.Core.Tests/Baton.Core.Tests.csproj" />
+    <Project Path="tests/Baton.Fhir.Tests/Baton.Fhir.Tests.csproj" />
+    <Project Path="tests/Baton.Scenarios.Tests/Baton.Scenarios.Tests.csproj" />
+  </Folder>
+</Solution>

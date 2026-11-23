@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Baton.Core\Baton.Core.csproj" />
+    <ProjectReference Include="..\Baton.Fhir\Baton.Fhir.csproj" />
+    <ProjectReference Include="..\Baton.Scenarios\Baton.Scenarios.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    env:
+      HL7_VALIDATOR_VERSION: 7.0.3
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - run: dotnet restore
+      - run: dotnet build --no-restore
+      - run: dotnet test --no-build
+
+      # The tests write the generated NEWS2 Observations to artifacts/fhir-examples.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Validate NEWS2 Observations with the official HL7 validator
+        run: |
+          curl -sSfL -o validator_cli.jar "https://github.com/hapifhir/org.hl7.fhir.core/releases/download/${HL7_VALIDATOR_VERSION}/validator_cli.jar"
+          java -jar validator_cli.jar artifacts/fhir-examples/*.json -version 4.0.1 -tx n/a

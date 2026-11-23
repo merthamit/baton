@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "hapi": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "launchUrl": "health",
+      "applicationUrl": "http://localhost:5188",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Baton__Source": "Hapi",
+        "Baton__FhirBaseUrl": "http://localhost:8080/fhir"
+      }
+    },
+    "inmemory": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "launchUrl": "health",
+      "applicationUrl": "http://localhost:5188",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Baton__Source": "InMemory"
+      }
+    }
+  }
+}

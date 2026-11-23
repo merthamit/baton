@@ -1,0 +1,47 @@
+# Local development FHIR server for Baton: HAPI FHIR JPA server on PostgreSQL.
+# Synthetic data only. The passwords are for this local setup and must change before any deployment.
+#   docker compose up -d
+#   FHIR base URL: http://localhost:8080/fhir
+services:
+  hapi:
+    image: hapiproject/hapi:v8.12.0-2
+    container_name: baton-hapi
+    restart: on-failure
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://db:5432/hapi"
+      SPRING_DATASOURCE_USERNAME: "admin"
+      SPRING_DATASOURCE_PASSWORD: "admin"
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: "org.postgresql.Driver"
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: "ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgresDialect"
+      # Java heap follows the container limit below (75% of 1.5 GB).
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75"
+    # Keep the laptop usable: HAPI is CPU-hungry while starting and loading (it used ~2 cores without a limit).
+    cpus: "1.5"
+    mem_limit: 1536m
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    container_name: baton-hapi-db
+    restart: always
+    cpus: "0.5"
+    mem_limit: 256m
+    environment:
+      POSTGRES_DB: "hapi"
+      POSTGRES_USER: "admin"
+      POSTGRES_PASSWORD: "admin"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d hapi"]
+      interval: 10s
+      timeout: 5s
+      start_period: 5s
+      retries: 5
+    volumes:
+      - baton-hapi-db:/var/lib/postgresql/data
+
+volumes:
+  baton-hapi-db:
