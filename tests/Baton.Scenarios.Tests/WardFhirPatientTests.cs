@@ -1,8 +1,6 @@
-using Firely.Fhir.Validation;
+using Baton.Tests.Shared;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Hl7.Fhir.Specification.Source;
-using Hl7.Fhir.Specification.Terminology;
 
 namespace Baton.Scenarios.Tests;
 
@@ -11,12 +9,6 @@ public class WardFhirPatientTests
 {
     private static readonly DateTimeOffset Start = CardFidelityTests.Quiet.ShiftStart;
     private static readonly IReadOnlyList<WardBed> WardBeds = Ward.Generate(Start, 42);
-
-    private static readonly Lazy<Validator> SharedValidator = new(() =>
-    {
-        var resolver = new CachedResolver(ZipSource.CreateValidationSource());
-        return new Validator(resolver, new LocalTerminologyService(resolver));
-    });
 
     private static T Single<T>(WardBed bed)
         where T : Resource => WardFhirBundle.Build(bed).Entry.Select(e => e.Resource).OfType<T>().Single();
@@ -55,7 +47,7 @@ public class WardFhirPatientTests
         var bed = WardBeds[1];
         foreach (Resource resource in new Resource[] { Single<Patient>(bed), Single<Condition>(bed) })
         {
-            var errors = SharedValidator.Value.Validate(resource).Issue
+            var errors = FhirValidation.Validator.Validate(resource).Issue
                 .Where(i => i.Severity is OperationOutcome.IssueSeverity.Error or OperationOutcome.IssueSeverity.Fatal)
                 .Select(i => $"{i.Severity}: {i.Details?.Text ?? i.Diagnostics} @ {string.Join(",", i.Expression)}")
                 .ToList();

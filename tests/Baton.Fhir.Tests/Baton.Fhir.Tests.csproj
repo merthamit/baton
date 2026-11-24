@@ -21,6 +21,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\FhirValidation.cs" Link="Shared\FhirValidation.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Baton.Fhir\Baton.Fhir.csproj" />
     <ProjectReference Include="..\..\src\Baton.Core\Baton.Core.csproj" />
   </ItemGroup>

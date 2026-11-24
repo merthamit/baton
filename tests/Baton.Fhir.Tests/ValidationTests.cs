@@ -1,9 +1,7 @@
 using Baton.Core.News2;
-using Firely.Fhir.Validation;
+using Baton.Tests.Shared;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Hl7.Fhir.Specification.Source;
-using Hl7.Fhir.Specification.Terminology;
 
 namespace Baton.Fhir.Tests;
 
@@ -12,12 +10,6 @@ namespace Baton.Fhir.Tests;
 // artifacts/fhir-examples so CI can run the official HL7 validator on it.
 public class ValidationTests
 {
-    private static readonly Lazy<Validator> SharedValidator = new(() =>
-    {
-        var resolver = new CachedResolver(ZipSource.CreateValidationSource());
-        return new Validator(resolver, new LocalTerminologyService(resolver));
-    });
-
     public static TheoryData<string, int> Scenarios => new()
     {
         { "stable", 0 },
@@ -38,7 +30,7 @@ public class ValidationTests
         news2.Id = $"news2-{name}";
 
         Assert.Equal(expectedTotal, result.Total);
-        var outcome = SharedValidator.Value.Validate(news2);
+        var outcome = FhirValidation.Validator.Validate(news2);
         var errors = outcome.Issue
             .Where(i => i.Severity is OperationOutcome.IssueSeverity.Error or OperationOutcome.IssueSeverity.Fatal)
             .Select(i => $"{i.Severity}: {i.Details?.Text ?? i.Diagnostics} @ {string.Join(",", i.Expression)}")
@@ -54,7 +46,7 @@ public class ValidationTests
         // Proves the validator is really checking: status and code are required (1..1) in FHIR R4.
         var broken = new Observation { Value = new Quantity { Value = 3, System = "http://unitsofmeasure.org", Code = "{score}" } };
 
-        var outcome = SharedValidator.Value.Validate(broken);
+        var outcome = FhirValidation.Validator.Validate(broken);
 
         Assert.Contains(outcome.Issue, i => i.Severity is OperationOutcome.IssueSeverity.Error);
     }
