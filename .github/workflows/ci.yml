@@ -23,10 +23,16 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - name: Validate NEWS2 Observations with the official HL7 validator
+      - name: Validate the generated FHIR examples with the official HL7 validator
         run: |
           curl -sSfL -o validator_cli.jar "https://github.com/hapifhir/org.hl7.fhir.core/releases/download/${HL7_VALIDATOR_VERSION}/validator_cli.jar"
-          java -jar validator_cli.jar artifacts/fhir-examples/*.json -version 4.0.1 -tx n/a
+          set +e
+          java -jar validator_cli.jar artifacts/fhir-examples/*.json -version 4.0.1 -tx n/a | tee validator.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          # Errors become annotations, so they can be read on the run page without opening the log.
+          grep -E "^-- |Error @" validator.txt | grep -B1 "Error @" | grep -v "^--$" | head -40 | while IFS= read -r line; do echo "::error::${line}"; done
+          exit $status
 
   web:
     runs-on: ubuntu-latest
