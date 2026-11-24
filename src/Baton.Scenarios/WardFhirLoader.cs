@@ -5,9 +5,10 @@ using Task = System.Threading.Tasks.Task;
 namespace Baton.Scenarios;
 
 /// <summary>
-/// Loads the synthetic ward into a FHIR server. For each bed it first deletes the patient's existing
-/// Observations, so loading again with another seed or delay never mixes two runs, then sends the bed's
-/// transaction Bundle. Waits for the server to answer /metadata first (HAPI needs about a minute to start).
+/// Loads the synthetic ward into a FHIR server. It first removes Baton's synthetic patients that are not part of
+/// this ward (an older bed numbering or a larger ward), with their Observations and Conditions. For each bed it then
+/// deletes the patient's existing Observations, so loading again with another seed or delay never mixes two runs,
+/// and sends the bed's transaction Bundle. Waits for the server to answer /metadata first (HAPI needs about a minute to start).
 /// </summary>
 public static class WardFhirLoader
 {
@@ -28,9 +29,17 @@ public static class WardFhirLoader
         ArgumentNullException.ThrowIfNull(ward);
 
         await WaitUntilReadyAsync(client, log, cancellationToken);
+        foreach (var stale in StalePatientIds(await BatonPatientIdsAsync(client, cancellationToken), ward))
+        {
+            var observations = await DeleteAllAsync<Observation>(client, $"subject=Patient/{stale}", cancellationToken);
+            var conditions = await DeleteAllAsync<Condition>(client, $"subject=Patient/{stale}", cancellationToken);
+            await client.DeleteAsync($"Patient/{stale}", ct: cancellationToken);
+            log?.Invoke($"Removed stale patient {stale} ({observations} observations, {conditions} conditions)");
+        }
+
         foreach (var bed in ward)
         {
-            var removed = await DeleteObservationsAsync(client, bed.PatientId, cancellationToken);
+            var removed = await DeleteAllAsync<Observation>(client, $"subject=Patient/{bed.PatientId}", cancellationToken);
             var bundle = WardFhirBundle.Build(bed);
             await client.TransactionAsync(bundle, cancellationToken);
             log?.Invoke($"{bed.Bed} {bed.PatientName}: removed {removed} old observations, wrote {bundle.Entry.Count} resources");
@@ -54,21 +63,42 @@ public static class WardFhirLoader
         }
     }
 
-    private static async Task<int> DeleteObservationsAsync(FhirClient client, string patientId, CancellationToken cancellationToken)
+    /// <summary>Baton patients on the server that this ward does not contain.</summary>
+    public static IReadOnlyList<string> StalePatientIds(IEnumerable<string> existing, IReadOnlyList<WardBed> ward)
+    {
+        ArgumentNullException.ThrowIfNull(existing);
+        ArgumentNullException.ThrowIfNull(ward);
+        var current = ward.Select(b => b.PatientId).ToHashSet(StringComparer.Ordinal);
+        return existing.Where(id => !current.Contains(id)).Distinct(StringComparer.Ordinal).ToList();
+    }
+
+    private static async Task<List<string>> BatonPatientIdsAsync(FhirClient client, CancellationToken cancellationToken) =>
+        await IdsAsync<Patient>(client, $"identifier={WardFhirBundle.BedSystem}|", cancellationToken);
+
+    private static async Task<List<string>> IdsAsync<T>(FhirClient client, string criterion, CancellationToken cancellationToken)
+        where T : Resource
     {
         var ids = new List<string>();
-        var query = new SearchParams().Where($"subject=Patient/{patientId}").LimitTo(200);
+        var query = new SearchParams().Where(criterion).LimitTo(200);
         query.Elements.Add("id");
-        var page = await client.SearchAsync<Observation>(query, cancellationToken);
+        var page = await client.SearchAsync<T>(query, cancellationToken);
         while (page is not null)
         {
-            ids.AddRange(page.Entry.Select(e => e.Resource).OfType<Observation>().Select(o => o.Id!));
+            ids.AddRange(page.Entry.Select(e => e.Resource).OfType<T>().Select(r => r.Id!));
             page = page.NextLink is null ? null : await client.ContinueAsync(page, ct: cancellationToken);
         }
 
+        return ids;
+    }
+
+    private static async Task<int> DeleteAllAsync<T>(FhirClient client, string criterion, CancellationToken cancellationToken)
+        where T : Resource
+    {
+        var ids = await IdsAsync<T>(client, criterion, cancellationToken);
+        var type = ModelInfo.GetFhirTypeNameForType(typeof(T));
         foreach (var id in ids)
         {
-            await client.DeleteAsync($"Observation/{id}", ct: cancellationToken);
+            await client.DeleteAsync($"{type}/{id}", ct: cancellationToken);
         }
 
         return ids.Count;
