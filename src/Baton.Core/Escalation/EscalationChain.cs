@@ -51,6 +51,7 @@ public static class EscalationChain
             : latest.PlannedAt is not null ? EscalationStep.Planned
             : latest.AssessedAt is not null ? EscalationStep.Assessed
             : latest.ArrivedAt is not null ? EscalationStep.Arrived
+            : latest.AcknowledgedAt is not null ? EscalationStep.Acknowledged
             : EscalationStep.Called;
 
         var open = calls.LastOrDefault(c => c.ArrivedAt is null);
@@ -77,6 +78,7 @@ public static class EscalationChain
 
     private static CallState BuildCall(Called call, List<EscalationRecord> past, List<ScoreMark> marks, EscalationOptions options)
     {
+        var acknowledged = past.OfType<Acknowledged>().FirstOrDefault(r => r.CallId == call.CallId);
         var arrived = past.OfType<Arrived>().FirstOrDefault(r => r.CallId == call.CallId);
         var assessed = past.OfType<Assessed>().FirstOrDefault(r => r.CallId == call.CallId);
         var planned = past.OfType<Planned>().FirstOrDefault(r => r.CallId == call.CallId);
@@ -103,6 +105,8 @@ public static class EscalationChain
             assessed?.At,
             assessed?.Text,
             planned?.At,
-            planned?.Text);
+            planned?.Text,
+            acknowledged?.At,
+            acknowledged?.By);
     }
 }

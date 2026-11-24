@@ -15,6 +15,9 @@ public enum EscalationStep
 {
     None,
     Called,
+
+    /// <summary>The called clinician confirmed the call and is coming (nothing in NEWS2 sets a target for it).</summary>
+    Acknowledged,
     Arrived,
     Assessed,
     Planned,
@@ -36,6 +39,28 @@ public sealed record PatientOrFamilyConcern(DateTimeOffset At, string By, string
 
 /// <summary>A clinician of <paramref name="Tier"/> is called. Later steps of this call carry the same <paramref name="CallId"/>.</summary>
 public sealed record Called(DateTimeOffset At, string By, string CallId, EscalationTier Tier) : EscalationRecord(At, By);
+
+/// <summary>The called clinician confirmed the call ("coming"). An automatic alert is never a call; only a call is acknowledged.</summary>
+public sealed record Acknowledged(DateTimeOffset At, string By, string CallId) : EscalationRecord(At, By);
+
+/// <summary>Why a set of observations due was not taken.</summary>
+public enum NotDoneReason
+{
+    /// <summary>Clinical decision to let the patient sleep.</summary>
+    PatientAsleep,
+    PatientDeclined,
+    OffTheWard,
+    EquipmentUnavailable,
+
+    /// <summary>End-of-life care: observations stopped by plan.</summary>
+    EndOfLifeCare,
+
+    /// <summary>The equipment works but no reading can be obtained: RCP NEWS2 asks for an immediate response.</summary>
+    CouldNotBeObtained,
+}
+
+/// <summary>A set due was not taken, with the reason. It does not change the escalation chain.</summary>
+public sealed record ObservationNotDone(DateTimeOffset At, string By, NotDoneReason Reason, string? Note) : EscalationRecord(At, By);
 
 /// <summary>The called clinician arrived. <paramref name="Simulated"/> marks an arrival Baton assumed rather than recorded.</summary>
 public sealed record Arrived(DateTimeOffset At, string By, string CallId, bool Simulated) : EscalationRecord(At, By);
@@ -70,7 +95,9 @@ public sealed record CallState(
     DateTimeOffset? AssessedAt,
     string? Assessment,
     DateTimeOffset? PlannedAt,
-    string? Plan);
+    string? Plan,
+    DateTimeOffset? AcknowledgedAt = null,
+    string? AcknowledgedBy = null);
 
 /// <summary>A patient's escalation chain at a moment. Baton reports; it never calls anyone.</summary>
 public sealed record EscalationState(

@@ -105,6 +105,64 @@ public static class TryCourse
         return new TryResult(bed, records.OrderBy(r => r.At).ToList());
     }
 
+    /// <summary>
+    /// Shift mode's bedside "Measure": the bed's true vitals at <paramref name="at"/>. Before <paramref name="startAt"/>
+    /// the board's past stands (its own arrivals and delay); from it, treatment starts the card's arrival-to-treatment gap
+    /// after the earliest real <paramref name="arrivals"/>, and with no arrival the card's delay rule keeps worsening the
+    /// patient (decision 2B). Measurement noise is cosmetic: it never changes the NEWS2 total or risk.
+    /// </summary>
+    public static (VitalSet Vitals, Core.News2.SpO2Scale Scale) TrueVitalsAt(
+        DateTimeOffset shiftStart,
+        int seed,
+        int bedIndex,
+        DateTimeOffset startAt,
+        IReadOnlyList<DateTimeOffset> arrivals,
+        DateTimeOffset at,
+        double treatmentDelayHours = 0,
+        double noiseLevel = 1)
+    {
+        ArgumentNullException.ThrowIfNull(arrivals);
+        var plan = Ward.Plan(Ward.MaxBeds)[bedIndex];
+        var card = CardShift.Shift(plan.Card, plan.ShiftHours);
+        var startHour = (startAt - shiftStart).TotalHours;
+        var hour = Math.Clamp((at - shiftStart).TotalHours, 0, ShiftSimulator.ShiftHours);
+
+        var delay = 0.0;
+        if (card.Delay is { } rule)
+        {
+            var watch = Simulate(plan, card, shiftStart, seed, bedIndex, noiseLevel: 0, delay: treatmentDelayHours, until: null);
+            var past = ScenarioEscalation.From(watch, shiftStart).OfType<Arrived>().Where(a => a.At < startAt).Select(a => a.At);
+            var hours = past.Concat(arrivals.Where(a => a >= startAt)).Select(a => (a - shiftStart).TotalHours).ToList();
+            var treatment = hours.Count > 0 ? hours.Min() + ArrivalToTreatmentGap(card).TotalHours : ShiftSimulator.ShiftHours;
+            delay = Math.Max(0, treatment - rule.TreatmentHour);
+            if (hours.Count > 0 && hours.Min() < startHour)
+            {
+                delay = Math.Max(delay, treatmentDelayHours);
+            }
+        }
+
+        var truth = Delay.Apply(card, hour, delay);
+        if (noiseLevel <= 0)
+        {
+            return (truth, card.Scale);
+        }
+
+        // Same rule as the simulator: keep a noisy reading only when it scores like the truth.
+        var random = new Random(HashCode.Combine(Ward.SeedFor(seed, bedIndex), (int)Math.Round(hour * 60)));
+        var score = Core.News2.News2Calculator.Calculate(truth.ToNews2Input(card.Scale, null));
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            var noisy = MeasurementNoise.Apply(truth, random, noiseLevel);
+            var noisyScore = Core.News2.News2Calculator.Calculate(noisy.ToNews2Input(card.Scale, null));
+            if (noisyScore.Total == score.Total && noisyScore.Risk == score.Risk)
+            {
+                return (noisy, card.Scale);
+            }
+        }
+
+        return (truth, card.Scale);
+    }
+
     /// <summary>The card's own call-to-arrival time, read from the Watch run (bed 02: 21 minutes).</summary>
     public static TimeSpan OnCallArrivalGap(IReadOnlyList<ScenarioEvent> events)
     {
