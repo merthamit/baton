@@ -113,6 +113,86 @@ internal sealed class SbarText
 
     public string NoEscalation => tr ? "Bu vardiyada çağrı yok" : "No escalation this shift";
 
+    // Recommendation
+    public string NextDue(string time, int? overdueMinutes) => (tr, overdueMinutes is > 0) switch
+    {
+        (false, false) => $"Next observation due {time}",
+        (false, true) => $"Next observation due {time} — overdue by {overdueMinutes} min",
+        (true, false) => $"Sonraki ölçüm {time}",
+        (true, true) => $"Sonraki ölçüm {time} — {overdueMinutes} dk gecikti",
+    };
+
+    public string TakeObservations => tr ? "Hemen tam bir ölçüm seti alın" : "Take a full set of observations now";
+
+    public string CallCriticalCareNow => tr ? "Puan 7 ve üstü: kritik bakım ekibini hemen çağırın" : "Score 7+: call the critical care team now";
+
+    public string TargetPassed(string target, EscalationTier tier) =>
+        tr ? $"Hedef {target} aşıldı: şimdi {TierInSentence(tier)} ile görüşün" : $"Target passed at {target}: tell the {TierInSentence(tier)} now";
+
+    public string IfNoReview(string? target, EscalationTier next) => (tr, target) switch
+    {
+        (false, null) => $"If no review comes, tell the {TierInSentence(next)}",
+        (false, { } at) => $"If no review by {at}, tell the {TierInSentence(next)}",
+        (true, null) => $"Değerlendirme gelmezse {TierInSentence(next)} ile görüşün",
+        (true, { } at) => $"{at} saatine kadar değerlendirme olmazsa {TierInSentence(next)} ile görüşün",
+    };
+
+    public string ChaseCriticalCare(string? target) => (tr, target) switch
+    {
+        (false, null) => "If the critical care team does not arrive, chase the call",
+        (false, { } at) => $"If the critical care team has not arrived by {at}, chase the call",
+        (true, null) => "Kritik bakım ekibi gelmezse çağrıyı yineleyin",
+        (true, { } at) => $"Kritik bakım ekibi {at} saatine kadar gelmezse çağrıyı yineleyin",
+    };
+
+    public string TellCriticalCareIfWorse => tr ? "Puan daha da yükselirse kritik bakım ekibi ile görüşün" : "If the score rises further, tell the critical care team";
+
+    public string IfReachesSeven(int minutes) =>
+        tr ? $"Puan 7'ye ulaşırsa {minutes} dk içinde kritik bakım becerili bir ekip çağırın" : $"If the score reaches 7, call a team with critical care skills within {minutes} min";
+
+    public string IfReachesFive(int minutes) =>
+        tr ? $"Puan 5'e ulaşırsa ya da tek bir bulgu 3 puan alırsa {minutes} dk içinde hekim değerlendirmesi isteyin"
+           : $"If the score reaches 5 or one parameter scores 3, ask for a doctor's review within {minutes} min";
+
+    public string OpenCall(EscalationTier tier, string time) => tr ? $"{Tier(tier)} çağrıldı, {time}; henüz gelmedi" : $"{Tier(tier)} called at {time}, not yet arrived";
+
+    public string OpenConcern(string time) => tr ? $"{time} endişesi açık" : $"Concern from {time} still open";
+
+    public string OpenFamilyConcern(string time) => tr ? $"{time} hasta/yakın endişesi açık" : $"Patient/family concern from {time} still open";
+
+    // Missing items (tags: no full stop)
+    public string MissingNoObservations => NoObservations;
+
+    public string MissingNoCall(int total, string time) => tr ? $"NEWS2 {total} ({time}) sonrası çağrı yok" : $"No call after NEWS2 {total} at {time}";
+
+    public string MissingNoCriticalCare(int total, string time) =>
+        tr ? $"NEWS2 {total} ({time}) sonrası kritik bakım çağrısı yok" : $"No critical care call after NEWS2 {total} at {time}";
+
+    public string MissingArrival(EscalationTier tier) => tr ? $"{Tier(tier)} çağrısı için geliş kaydı yok" : $"No arrival recorded for the {TierInSentence(tier)} call";
+
+    public string MissingAssessment(EscalationTier tier) =>
+        tr ? $"{Tier(tier)} çağrısı için değerlendirme kaydı yok" : $"No assessment recorded for the {TierInSentence(tier)} call";
+
+    public string MissingPlan(EscalationTier tier) => tr ? $"{Tier(tier)} çağrısı için plan kaydı yok" : $"No plan recorded for the {TierInSentence(tier)} call";
+
+    public string MissingOverdue(int minutes) => tr ? $"Ölçüm {minutes} dk gecikti" : $"Observation overdue by {minutes} min";
+
+    // State line (list row)
+    public string StatePlanned(EscalationTier tier, string time) => tr ? $"{Tier(tier)}: plan kaydedildi {time}" : $"{Tier(tier)}: plan recorded {time}";
+
+    public string StateAssessed(EscalationTier tier, string time) => tr ? $"{Tier(tier)} değerlendirdi {time}" : $"{Tier(tier)} assessed {time}";
+
+    public string StateArrived(EscalationTier tier, string time) => tr ? $"{Tier(tier)} geldi {time}" : $"{Tier(tier)} arrived {time}";
+
+    public string StateWaiting(EscalationTier tier, string time, int minutes) =>
+        tr ? $"{Tier(tier)} çağrıldı {time}, {minutes} dk bekliyor" : $"{Tier(tier)} called {time}, waiting {minutes} min";
+
+    public string StateStable => tr ? "Stabil" : "Stable";
+
+    public string StateNotEscalated => tr ? "Çağrı yapılmadı" : "Not escalated";
+
+    public string StateNoObservations => tr ? "Ölçüm yok" : "No observations";
+
     // Source labels
     public string ObservationsLabel(string time) => tr ? $"Ölçüm {time}" : $"Observations {time}";
 

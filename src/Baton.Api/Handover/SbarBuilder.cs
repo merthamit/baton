@@ -25,7 +25,7 @@ public static class SbarBuilder
             new(SbarPart.Situation, Situation(context)),
             new(SbarPart.Background, Background(context)),
             new(SbarPart.Assessment, Assessment(context)),
-            new(SbarPart.Recommendation, []),
+            new(SbarPart.Recommendation, Recommendation(context)),
         };
 
         return new Sbar(
@@ -33,8 +33,8 @@ public static class SbarBuilder
             context.WindowStart,
             text.Language,
             sections,
-            [],
-            "",
+            Missing(context),
+            StateLine(context),
             context.Latest?.Total,
             context.Latest?.Risk,
             context.Peak?.Total);
@@ -53,7 +53,22 @@ public static class SbarBuilder
             Records = input.Records.Where(r => r.At <= input.At).OrderBy(r => r.At).ToList();
             Latest = Points.Count > 0 ? Points[^1] : null;
             Peak = Points.Where(p => p.Total is not null).OrderByDescending(p => p.Total).ThenBy(p => p.At).FirstOrDefault();
+            State = EscalationChain.At(
+                Records,
+                input.Points.Where(p => p.At <= input.At).Select(p => new ScoreMark(p.At, p.Risk)).ToList(),
+                input.At,
+                input.Options);
+            var inWindow = CallsInWindow().Select(call => call.CallId).ToHashSet(StringComparer.Ordinal);
+            WindowCalls = State.Calls.Where(call => inWindow.Contains(call.CallId)).ToList();
         }
+
+        /// <summary>The chain at the moment (all records up to it), as the board computes it.</summary>
+        public EscalationState State { get; }
+
+        /// <summary>The chain's calls that belong to this handover, in call order.</summary>
+        public IReadOnlyList<CallState> WindowCalls { get; }
+
+        public SourceRef Of(CallState call) => new($"Task/{call.CallId}", call.CalledAt, Text.CallLabel(call.Tier, Time(call.CalledAt)));
 
         public SbarInput Input { get; }
 
@@ -238,5 +253,161 @@ public static class SbarBuilder
         }
 
         return sentences;
+    }
+
+    private static List<SbarSentence> Recommendation(Context c)
+    {
+        var t = c.Text;
+        var sentences = new List<SbarSentence>();
+        if (c.Latest is not null && c.Input.NextDue is { } due)
+        {
+            sentences.Add(Say(t.NextDue(c.Time(due), c.Input.OverdueMinutes), c.Of(c.Latest)));
+        }
+
+        sentences.Add(Contingency(c));
+
+        if (c.State.OpenCall is { } open)
+        {
+            sentences.Add(Say(t.OpenCall(open.Tier, c.Time(open.CalledAt)), [c.Of(open)]));
+        }
+
+        foreach (var record in c.Records.Where(r => r.At >= c.WindowStart))
+        {
+            switch (record)
+            {
+                case ConcernRaised concern:
+                    sentences.Add(Say(t.OpenConcern(c.Time(concern.At)), [c.Of(concern)]));
+                    break;
+                case PatientOrFamilyConcern voice:
+                    sentences.Add(Say(t.OpenFamilyConcern(c.Time(voice.At)), [c.Of(voice)]));
+                    break;
+            }
+        }
+
+        return sentences;
+    }
+
+    /// <summary>
+    /// Exactly one "if this, then that" line from existing rules only; the first match wins (spec "Precedence").
+    /// Critical care comes first, as in the chain's own suggestion.
+    /// </summary>
+    private static SbarSentence Contingency(Context c)
+    {
+        var t = c.Text;
+        var state = c.State;
+        var calls = state.Calls;
+        var risk = c.Latest?.Risk;
+        var latest = c.LatestOrPatient();
+
+        if (c.Latest is null)
+        {
+            return Say(t.TakeObservations, c.PatientSources());
+        }
+
+        if (risk == RiskLevel.High && calls.All(call => call.Tier != EscalationTier.CriticalCare))
+        {
+            return Say(t.CallCriticalCareNow, latest);
+        }
+
+        if (state.TargetPassed && state.SuggestedNextTier is { } suggested && state.OpenCall is { TargetAt: { } passedAt } passed)
+        {
+            return Say(t.TargetPassed(c.Time(passedAt), suggested), [c.Of(passed)]);
+        }
+
+        if (state.OpenCall is { } open)
+        {
+            var target = open.TargetAt is { } at ? c.Time(at) : null;
+            return open.Tier == EscalationTier.CriticalCare
+                ? Say(t.ChaseCriticalCare(target), [c.Of(open)])
+                : Say(t.IfNoReview(target, open.Tier + 1), [c.Of(open)]);
+        }
+
+        if (risk == RiskLevel.High && calls.Any(call => call.Tier == EscalationTier.CriticalCare && call.ArrivedAt is not null))
+        {
+            return Say(t.TellCriticalCareIfWorse, latest);
+        }
+
+        return risk is RiskLevel.Medium or RiskLevel.LowMedium
+            ? Say(t.IfReachesSeven(c.Input.Options.HighTargetMinutes), latest)
+            : Say(t.IfReachesFive(c.Input.Options.MediumTargetMinutes), latest);
+    }
+
+    private static List<MissingItem> Missing(Context c)
+    {
+        var t = c.Text;
+        var missing = new List<MissingItem>();
+        var calls = c.Records.OfType<Called>().ToList();
+
+        if (c.Latest is null)
+        {
+            missing.Add(new(MissingKind.NoObservations, t.MissingNoObservations, c.PatientSources()));
+        }
+
+        // The first measurement asking for escalation with no call at or after it and no call open at that moment.
+        var uncovered = c.Points.FirstOrDefault(p =>
+            p.Risk is RiskLevel.LowMedium or RiskLevel.Medium or RiskLevel.High
+            && !calls.Any(call => call.At >= p.At)
+            && !c.State.Calls.Any(call => call.CalledAt <= p.At && (call.ArrivedAt is null || call.ArrivedAt > p.At)));
+        if (uncovered is not null)
+        {
+            missing.Add(new(MissingKind.NoCallAfterScore, t.MissingNoCall(uncovered.Total ?? uncovered.MinimumTotal ?? 0, c.Time(uncovered.At)), c.Of(uncovered)));
+        }
+
+        // The first 7+ with no critical care call (the chain suggests critical care for exactly this case).
+        var high = c.Points.FirstOrDefault(p => p.Risk == RiskLevel.High);
+        if (high is not null && calls.All(call => call.Tier != EscalationTier.CriticalCare))
+        {
+            missing.Add(new(MissingKind.NoCriticalCareCall, t.MissingNoCriticalCare(high.Total ?? high.MinimumTotal ?? 0, c.Time(high.At)), c.Of(high)));
+        }
+
+        foreach (var call in c.WindowCalls)
+        {
+            if (call.ArrivedAt is null)
+            {
+                if (call.TargetAt is { } target && target < c.Input.At)
+                {
+                    missing.Add(new(MissingKind.NoArrival, t.MissingArrival(call.Tier), [c.Of(call)]));
+                }
+            }
+            else if (call.AssessedAt is null)
+            {
+                missing.Add(new(MissingKind.NoAssessment, t.MissingAssessment(call.Tier), [c.Of(call)]));
+            }
+            else if (call.PlannedAt is null)
+            {
+                missing.Add(new(MissingKind.NoPlan, t.MissingPlan(call.Tier), [c.Of(call)]));
+            }
+        }
+
+        if (c.Latest is not null && c.Input.OverdueMinutes is { } overdue && overdue > 0)
+        {
+            missing.Add(new(MissingKind.ObservationOverdue, t.MissingOverdue(overdue), c.Of(c.Latest)));
+        }
+
+        return missing;
+    }
+
+    /// <summary>One line for the handover list: how far the latest call has got, or whether the patient is stable.</summary>
+    private static string StateLine(Context c)
+    {
+        var t = c.Text;
+        if (c.WindowCalls.Count > 0)
+        {
+            var call = c.WindowCalls.OrderBy(x => x.CalledAt).Last();
+            return call switch
+            {
+                { PlannedAt: { } planned } => t.StatePlanned(call.Tier, c.Time(planned)),
+                { AssessedAt: { } assessed } => t.StateAssessed(call.Tier, c.Time(assessed)),
+                { ArrivedAt: { } arrived } => t.StateArrived(call.Tier, c.Time(arrived)),
+                _ => t.StateWaiting(call.Tier, c.Time(call.CalledAt), (int)Math.Floor((c.Input.At - call.CalledAt).TotalMinutes)),
+            };
+        }
+
+        if (c.Latest is null)
+        {
+            return t.StateNoObservations;
+        }
+
+        return c.Latest.Risk is null or RiskLevel.Low ? t.StateStable : t.StateNotEscalated;
     }
 }
