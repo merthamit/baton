@@ -29,7 +29,36 @@ public static class EscalationFhir
         Clinician("synthetic-oncall", "On-call doctor (synthetic)"),
         Clinician("synthetic-senior", "Senior doctor (synthetic)"),
         Clinician("synthetic-cct", "Critical care team (synthetic)"),
+        Clinician("synthetic-incoming", "Incoming nurse (synthetic)"),
     ];
+
+    /// <summary>Baton itself, as the assembler of rule-based handover drafts (Provenance agent).</summary>
+    public static Device BatonDevice { get; } = new()
+    {
+        Id = "baton",
+        Meta = Synthetic(),
+        DeviceName = [new Device.DeviceNameComponent { Name = "Baton (rule-based handover draft)", Type = DeviceNameType.UserFriendlyName }],
+    };
+
+    /// <summary>
+    /// The FHIR reference of the resource a record is stored in: a concern's Flag, a patient/family concern's
+    /// Communication, or the call's Task for every step of a call. Same ids as <see cref="ToResources"/> writes.
+    /// </summary>
+    public static string ReferenceOf(EscalationRecord record, string patientId)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        ArgumentException.ThrowIfNullOrEmpty(patientId);
+        return record switch
+        {
+            ConcernRaised c => $"Flag/{ConcernId(patientId, c.At)}",
+            PatientOrFamilyConcern p => $"Communication/{VoiceId(patientId, p.At)}",
+            _ => CallIdOf(record) is { } callId ? $"Task/{callId}" : throw new ArgumentException($"No FHIR resource for {record.GetType().Name}.", nameof(record)),
+        };
+    }
+
+    private static string ConcernId(string patientId, DateTimeOffset at) => $"concern-{patientId}-{Stamp(at)}";
+
+    private static string VoiceId(string patientId, DateTimeOffset at) => $"voice-{patientId}-{Stamp(at)}";
 
     public static IReadOnlyList<Resource> ToResources(
         IReadOnlyList<EscalationRecord> records,
@@ -53,7 +82,7 @@ public static class EscalationFhir
         {
             var flag = new Flag
             {
-                Id = $"concern-{patientId}-{Stamp(concern.At)}",
+                Id = ConcernId(patientId, concern.At),
                 Meta = Synthetic(),
                 Status = Flag.FlagStatus.Active,
                 Category = [new CodeableConcept("http://terminology.hl7.org/CodeSystem/flag-category", "clinical")],
@@ -71,7 +100,7 @@ public static class EscalationFhir
         {
             var communication = new Communication
             {
-                Id = $"voice-{patientId}-{Stamp(voice.At)}",
+                Id = VoiceId(patientId, voice.At),
                 Meta = Synthetic(),
                 Status = EventStatus.Completed,
                 Category = [new CodeableConcept(System, "patient-or-family-concern", "Patient or family concern")],

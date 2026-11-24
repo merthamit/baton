@@ -37,6 +37,21 @@ public class EscalationFhirTests
         EscalationFhir.ToResources(Story, PatientId, news2 ?? News2At, Scores);
 
     [Fact]
+    public void ReferenceOfMatchesTheIdsToResourcesWrites()
+    {
+        var written = Resources().Select(r => $"{r.TypeName}/{r.Id}").ToHashSet(StringComparer.Ordinal);
+
+        Assert.All(Story, record => Assert.Contains(EscalationFhir.ReferenceOf(record, PatientId), written));
+    }
+
+    [Fact]
+    public void PractitionersIncludeTheIncomingNurse()
+    {
+        Assert.Contains(EscalationFhir.Practitioners, p => p.Id == "synthetic-incoming");
+        Assert.Equal("baton", EscalationFhir.BatonDevice.Id);
+    }
+
+    [Fact]
     public void RoundTrip_Records_Equal()
     {
         var shuffled = Resources().Reverse();

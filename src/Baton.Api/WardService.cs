@@ -18,7 +18,8 @@ public sealed record ScorePoint(
     IReadOnlyList<News2Parameter> ParametersScoring3,
     IReadOnlyList<News2Problem> Problems,
     News2Input Input,
-    IReadOnlyList<string> Notes);
+    IReadOnlyList<string> Notes,
+    IReadOnlyList<string> Sources);
 
 /// <summary>
 /// One bed for the nurse card. <see cref="Drivers"/> are the parameters raising the latest score, highest sub-score
@@ -191,6 +192,22 @@ public sealed class WardService(IVitalSignsSource source, EscalationOptions? esc
     public static DateTimeOffset? TimeOf(Observation observation) =>
         observation.Effective is FhirDateTime dt && dt.TryToDateTimeOffset(out var value) ? value : null;
 
+    /// <summary>
+    /// The FHIR references behind a score: every reading that entered it (older readings carried forward included) and
+    /// the NEWS2 Observation stored for that measurement time, when there is one.
+    /// </summary>
+    private static List<string> SourcesOf(string patientId, DateTimeOffset time, VitalSignsReading reading, IReadOnlyList<Observation> observations)
+    {
+        var news2Prefix = $"news2-{patientId}-";
+        return reading.Sources.Values
+            .Concat(observations.Where(o => o.Id?.StartsWith(news2Prefix, StringComparison.Ordinal) == true && TimeOf(o) == time))
+            .Where(o => o.Id is not null)
+            .Select(o => $"Observation/{o.Id}")
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+    }
+
     private static async Task<List<ScorePoint>> ScoreAsync(IVitalSignsSource source, PatientRef patient, DateTimeOffset at, CancellationToken cancellationToken)
     {
         var observations = await source.GetObservationsAsync(patient.Id, at, cancellationToken);
@@ -214,7 +231,7 @@ public sealed class WardService(IVitalSignsSource source, EscalationOptions? esc
             var score = News2Calculator.Calculate(reading.Input);
             var local = time.ToOffset(at.Offset);
             return new ScorePoint(local, score.Total, score.MinimumTotal, score.Risk, score.Response, score.MinimumMonitoringFrequency,
-                score.SubScores, score.ParametersScoring3, score.Problems, reading.Input, reading.Notes);
+                score.SubScores, score.ParametersScoring3, score.Problems, reading.Input, reading.Notes, SourcesOf(patient.Id, time, reading, observations));
         }).ToList();
     }
 }

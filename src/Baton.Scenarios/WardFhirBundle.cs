@@ -122,6 +122,7 @@ public static class WardFhirBundle
         resources.AddRange(bed.Patient.Measurements.SelectMany(m => ScenarioFhirExport.ToObservations(bed, m)));
         resources.AddRange(Escalation(bed, shiftStart));
         resources.AddRange(EscalationFhir.Practitioners);
+        resources.Add(EscalationFhir.BatonDevice);
 
         return new Bundle
         {

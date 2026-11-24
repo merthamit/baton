@@ -56,6 +56,16 @@ public class CardFieldsTests(WebApplicationFactory<Program> factory) : IClassFix
     }
 
     [Fact]
+    public async Task LatestScoreListsTheObservationsBehindIt()
+    {
+        var sources = Bed(await Ward(15.5), "02").GetProperty("latest").GetProperty("sources").EnumerateArray().Select(s => s.GetString()!).ToList();
+
+        Assert.NotEmpty(sources);
+        Assert.All(sources, s => Assert.StartsWith("Observation/", s, StringComparison.Ordinal));
+        Assert.Equal(sources.Count, sources.Distinct().Count());
+    }
+
+    [Fact]
     public async Task Ward_Bed02_HasConcernAndDoctorCalled()
     {
         var bed = Bed(await Ward(15.5), "02"); // 23:30
