@@ -1,0 +1,87 @@
+import type { Messages } from './en';
+
+// Turkish interface text. Typed against the English dictionary: every key must be here, with the same signature.
+export const tr: Messages = {
+  langName: 'Türkçe',
+  appName: 'Baton',
+  wardName: 'Dahiliye 3',
+  boardTitle: 'Servis panosu',
+  syntheticNotice: 'Sentetik veri · tıbbi cihaz değildir',
+  syntheticDetail: 'Bütün hastalar uydurmadır. Baton hasta bakımında kullanılamaz.',
+  languageLabel: 'Dil',
+
+  timeLabel: 'Servis saati',
+  timeHint: 'Kartlar hemşirenin bu anda gördüğünü gösterir: son ölçüm, kim çağrıldı, sıradaki ölçüm.',
+  dataSource: (source: string) => `Veri kaynağı: ${source}`,
+
+  bed: (bed: string) => `Yatak ${bed}`,
+  age: (years: number) => `${years}`,
+  boardLabel: 'Yataklar',
+
+  riskLow: 'Düşük',
+  riskLowMedium: 'Düşük–orta',
+  riskMedium: 'Orta',
+  riskHigh: 'Yüksek',
+  riskZero: 'Puan 0',
+
+  paramRespirationRate: 'Solunum',
+  paramSpO2: 'SpO₂',
+  paramSupplementalOxygen: 'Oksijen',
+  paramSystolicBp: 'Sistolik',
+  paramPulseRate: 'Nabız',
+  paramConsciousness: 'Bilinç',
+  paramTemperature: 'Ateş',
+  onOxygen: 'O₂ alıyor',
+  roomAir: 'oda havası',
+
+  raisedBy: 'Yükselten',
+  allNormal: 'Bütün bulgular normal',
+  noObservations: 'Henüz ölçüm yok',
+  missing: (parameter: string) => `${parameter} eksik`,
+  atLeast: (n: number) => `en az ${n}`,
+  incompleteScore: 'Eksik puan',
+
+  trendUp: (change: number, hours: string) => `↑ +${change} / ${hours} sa`,
+  trendDown: (change: number, hours: string) => `↓ ${change} / ${hours} sa`,
+  trendFlat: '→ değişmedi',
+
+  nextObs: (time: string) => `Sonraki ölçüm ${time}`,
+  overdue: (minutes: number) => `${minutes} dk gecikti`,
+  continuous: 'Sürekli izlem',
+  lastObs: (time: string) => `Son ölçüm ${time}`,
+
+  concern: (time: string) => `Endişe ${time}`,
+  doctorCalledWaiting: (time: string, minutes: number) => `Hekim çağrıldı ${time} · ${minutes} dk bekliyor`,
+  doctorArrived: (time: string) => `Hekim geldi ${time}`,
+  criticalCare: (time: string) => `Kritik bakım çağrıldı ${time}`,
+  scale2: 'SpO₂ Skala 2',
+  eventsUnavailable: 'Bu veri kaynağında müdahale olayları henüz yok',
+
+  loading: 'Servis yükleniyor…',
+  loadError: 'Servis yüklenemedi.',
+  fhirDown: 'FHIR sunucusu cevap vermiyor. Sunucuyu başlatıp tekrar deneyin.',
+  retry: 'Tekrar dene',
+  emptyWard: 'Bu serviste hasta yok. Sentetik servisi yükleyip tekrar deneyin.',
+
+  eventConcern: 'Endişe bayrağı',
+  eventScale2Decision: 'Skala 2 kararı',
+  eventAlert: 'Baton uyarısı',
+  eventDoctorCalled: 'Hekim çağrıldı',
+  eventDoctorArrived: 'Hekim geldi',
+  eventTreatmentStarted: 'Tedavi başladı',
+  eventCriticalCareCalled: 'Kritik bakım çağrıldı',
+  eventNote: 'Not',
+
+  selectHint: 'Hastanın grafiğini, olaylarını ve ölçümlerini görmek için bir yatak seçin.',
+  patientLoading: 'Hasta yükleniyor…',
+  chartLabel: (bed: string, from: string, to: string) => `${bed} için vardiya boyunca NEWS2, ${from}–${to}`,
+  events: 'Olaylar',
+  eventsHint: 'Soluk olaylar seçilen saatte henüz olmadı.',
+  noEvents: 'Bu vardiyada olay yok.',
+  observations: 'Ölçümler',
+  colTime: 'Saat',
+  colTotal: 'NEWS2',
+  scale2Short: 'S2',
+  beforeShift: 'önce',
+  scenarioDiagnosis: (diagnosis: string) => diagnosis,
+};

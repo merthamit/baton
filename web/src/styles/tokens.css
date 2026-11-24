@@ -1,0 +1,189 @@
+/* Baton's visual tokens, from the approved preview board. Light by default, dark by system preference or
+   data-theme. Risk tiers always pair a colour with a shape and text (colour is never the only signal). */
+:root {
+  --bg: #eef2f4;
+  --panel: #ffffff;
+  --ink: #15212a;
+  --muted: #5a6a74;
+  --line: #d3dbe0;
+  --accent: #1f5f8b;
+  --accent-soft: #e3eef6;
+  --ok: #245b3a;
+  --ok-bg: #e5f0e8;
+  --mid: #1f5f8b;
+  --mid-bg: #e1ecf5;
+  --warn: #8a5200;
+  --warn-bg: #fbe9cc;
+  --bad: #9b1c2c;
+  --bad-bg: #f8d9dc;
+  --band0: #edf4ef;
+  --band1: #e9f1f7;
+  --band2: #fdf0d9;
+  --band3: #fbe3e6;
+  --f-body: 'Atkinson Hyperlegible', 'Segoe UI', system-ui, sans-serif;
+  --f-data: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+  --radius: 10px;
+  --dur: 180ms;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0e161b;
+    --panel: #152129;
+    --ink: #e3ebef;
+    --muted: #97a7b1;
+    --line: #283842;
+    --accent: #83b9de;
+    --accent-soft: #18303f;
+    --ok: #8fd3a8;
+    --ok-bg: #16302a;
+    --mid: #8cc3e8;
+    --mid-bg: #152c3c;
+    --warn: #f3c27a;
+    --warn-bg: #3a2a10;
+    --bad: #f4a3ad;
+    --bad-bg: #3d1a20;
+    --band0: #13231e;
+    --band1: #122230;
+    --band2: #2b2211;
+    --band3: #2d161b;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0e161b;
+  --panel: #152129;
+  --ink: #e3ebef;
+  --muted: #97a7b1;
+  --line: #283842;
+  --accent: #83b9de;
+  --accent-soft: #18303f;
+  --ok: #8fd3a8;
+  --ok-bg: #16302a;
+  --mid: #8cc3e8;
+  --mid-bg: #152c3c;
+  --warn: #f3c27a;
+  --warn-bg: #3a2a10;
+  --bad: #f4a3ad;
+  --bad-bg: #3d1a20;
+  --band0: #13231e;
+  --band1: #122230;
+  --band2: #2b2211;
+  --band3: #2d161b;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+
+h2 {
+  font-size: 1.15rem;
+}
+
+h3 {
+  font-size: 1rem;
+}
+
+.mono {
+  font-family: var(--f-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.lbl {
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.seg button {
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  padding: 6px 12px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  min-height: 36px;
+}
+
+.seg button:last-child {
+  border-right: 0;
+}
+
+.seg button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--panel);
+  font-weight: 700;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}
