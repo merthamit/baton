@@ -42,6 +42,7 @@ builder.Services.AddSingleton(sp =>
     return new BatonOptionsSnapshot(options.ShiftStart, options.Seed);
 });
 builder.Services.AddSingleton<TrySessions>();
+builder.Services.AddSingleton<Baton.Api.Live.WardChangeFeed>();
 builder.Services.AddSingleton<Baton.Api.Handover.IHandoverStore>(sp =>
 {
     var options = sp.GetRequiredService<IOptions<BatonOptions>>().Value;
@@ -119,7 +120,7 @@ app.MapGet("/api/patients/{id}", async (string id, string? at, string? lang, [Mi
         await ward.GetPatientAsync(id, moment, ct, Language.From(lang), overlay) is { } series ? Results.Ok(series) : Results.NotFound());
 });
 
-app.MapPost("/api/try", async (TryStartRequest body, TrySessions tries, CancellationToken ct) =>
+app.MapPost("/api/try", async (TryStartRequest body, TrySessions tries, Baton.Api.Live.WardChangeFeed feed, CancellationToken ct) =>
 {
     if (source is not InMemoryVitalSignsSource)
     {
@@ -144,10 +145,11 @@ app.MapPost("/api/try", async (TryStartRequest body, TrySessions tries, Cancella
     }
 
     var session = tries.Start(body.PatientId, bedIndex, at);
+    feed.Publish(new Baton.Api.Live.WardChange("Try", session.PatientId, session.Id, at));
     return Results.Created($"/api/try/{session.Id}", new { sessionId = session.Id, patientId = session.PatientId, startedAt = session.StartedAt });
 });
 
-app.MapPost("/api/try/{id}/actions", (string id, TryActionRequest body, TrySessions tries) =>
+app.MapPost("/api/try/{id}/actions", (string id, TryActionRequest body, TrySessions tries, Baton.Api.Live.WardChangeFeed feed) =>
 {
     if (tries.Get(id) is not { } session)
     {
@@ -155,12 +157,30 @@ app.MapPost("/api/try/{id}/actions", (string id, TryActionRequest body, TrySessi
     }
 
     var action = new Baton.Scenarios.TryAction(body.Kind, body.At.ToOffset(settings.ShiftStart.Offset), body.Text, body.Tier);
-    return tries.Add(session, action) is { } broken
-        ? Results.Problem(broken, statusCode: StatusCodes.Status400BadRequest, title: "Action not allowed")
-        : Results.Ok(new { lastActionAt = session.LastActionAt });
+    if (tries.Add(session, action) is { } broken)
+    {
+        return Results.Problem(broken, statusCode: StatusCodes.Status400BadRequest, title: "Action not allowed");
+    }
+
+    feed.Publish(new Baton.Api.Live.WardChange("Try", session.PatientId, session.Id, action.At));
+    return Results.Ok(new { lastActionAt = session.LastActionAt });
 });
 
-app.MapDelete("/api/try/{id}", (string id, TrySessions tries) => tries.Remove(id) ? Results.NoContent() : TryOverlay.Expired());
+app.MapDelete("/api/try/{id}", (string id, TrySessions tries, Baton.Api.Live.WardChangeFeed feed) =>
+{
+    var session = tries.Get(id);
+    if (!tries.Remove(id))
+    {
+        return TryOverlay.Expired();
+    }
+
+    feed.Publish(new Baton.Api.Live.WardChange("Try", session?.PatientId, id, DateTimeOffset.UtcNow));
+    return Results.NoContent();
+});
+
+// Live board: "something changed, refetch" as Server-Sent Events (decision 18A).
+app.MapGet("/api/live", (Baton.Api.Live.WardChangeFeed feed, CancellationToken ct) =>
+    TypedResults.ServerSentEvents(feed.Stream(TimeSpan.FromSeconds(25), ct)));
 
 app.MapGet("/api/handover", async (string? at, string? lang, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, Baton.Api.Handover.HandoverService handover, TrySessions tries, CancellationToken ct) =>
 {
@@ -182,7 +202,7 @@ app.MapGet("/api/handover", async (string? at, string? lang, [Microsoft.AspNetCo
 });
 
 // "Taken over": stores the patient's SBAR at that minute as a FHIR document. Never in Try mode (a rehearsal).
-app.MapPost("/api/handover/{patientId}", async (string patientId, HandoverConfirmRequest body, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, Baton.Api.Handover.HandoverService handover, CancellationToken ct) =>
+app.MapPost("/api/handover/{patientId}", async (string patientId, HandoverConfirmRequest body, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, Baton.Api.Handover.HandoverService handover, Baton.Api.Live.WardChangeFeed feed, CancellationToken ct) =>
 {
     if (!string.IsNullOrEmpty(trySession))
     {
@@ -195,9 +215,15 @@ app.MapPost("/api/handover/{patientId}", async (string patientId, HandoverConfir
     return await FhirServerProblem.Guard(async () =>
     {
         var (outcome, confirmed) = await handover.ConfirmAsync(patientId, minute, Language.From(body.Lang), ct);
+        IResult Created()
+        {
+            feed.Publish(new Baton.Api.Live.WardChange("Handover", patientId, null, confirmed!.At));
+            return Results.Created($"/api/handover/{patientId}", new { documentId = confirmed.DocumentId, at = confirmed.At });
+        }
+
         return outcome switch
         {
-            Baton.Api.Handover.ConfirmOutcome.Created => Results.Created($"/api/handover/{patientId}", new { documentId = confirmed!.DocumentId, at = confirmed.At }),
+            Baton.Api.Handover.ConfirmOutcome.Created => Created(),
             Baton.Api.Handover.ConfirmOutcome.UnknownPatient => Results.Problem($"Unknown patient '{patientId}'.", statusCode: StatusCodes.Status404NotFound),
             _ => Results.Problem("This patient was already taken over at this minute.", statusCode: StatusCodes.Status409Conflict, title: "Already taken over"),
         };
