@@ -42,6 +42,18 @@ builder.Services.AddSingleton(sp =>
     return new BatonOptionsSnapshot(options.ShiftStart, options.Seed);
 });
 builder.Services.AddSingleton<TrySessions>();
+builder.Services.AddSingleton<Baton.Api.Handover.IHandoverStore>(sp =>
+{
+    var options = sp.GetRequiredService<IOptions<BatonOptions>>().Value;
+    return options.SourceName == BatonOptions.Hapi
+        ? new Baton.Api.Handover.HapiHandoverStore(HapiVitalSignsSource.CreateClient(options.FhirBaseUrl))
+        : new Baton.Api.Handover.InMemoryHandoverStore();
+});
+builder.Services.AddSingleton(sp => new Baton.Api.Handover.HandoverService(
+    sp.GetRequiredService<WardService>(),
+    sp.GetRequiredService<IVitalSignsSource>(),
+    sp.GetRequiredService<Baton.Api.Handover.IHandoverStore>(),
+    sp.GetRequiredService<IOptions<BatonOptions>>().Value.ShiftStart));
 
 var app = builder.Build();
 
@@ -150,10 +162,54 @@ app.MapPost("/api/try/{id}/actions", (string id, TryActionRequest body, TrySessi
 
 app.MapDelete("/api/try/{id}", (string id, TrySessions tries) => tries.Remove(id) ? Results.NoContent() : TryOverlay.Expired());
 
+app.MapGet("/api/handover", async (string? at, string? lang, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, Baton.Api.Handover.HandoverService handover, TrySessions tries, CancellationToken ct) =>
+{
+    if (!TimeQuery.TryParse(at, settings.DefaultAt, out var moment, out var error))
+    {
+        return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
+    }
+
+    var (overlay, tryProblem) = TryOverlay.Resolve(trySession, tries, source);
+    if (tryProblem is not null)
+    {
+        return tryProblem;
+    }
+
+    moment = moment.ToOffset(settings.ShiftStart.Offset);
+
+    return await FhirServerProblem.Guard(async () =>
+        Results.Ok(await handover.GetAsync(moment, Language.From(lang), overlay, canConfirm: overlay is null, ct)));
+});
+
+// "Taken over": stores the patient's SBAR at that minute as a FHIR document. Never in Try mode (a rehearsal).
+app.MapPost("/api/handover/{patientId}", async (string patientId, HandoverConfirmRequest body, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, Baton.Api.Handover.HandoverService handover, CancellationToken ct) =>
+{
+    if (!string.IsNullOrEmpty(trySession))
+    {
+        return Results.Problem("A Try session is a rehearsal: its handover is not stored.", statusCode: StatusCodes.Status409Conflict, title: "Handover not stored in Try");
+    }
+
+    var local = body.At.ToOffset(settings.ShiftStart.Offset);
+    var minute = new DateTimeOffset(local.Year, local.Month, local.Day, local.Hour, local.Minute, 0, local.Offset);
+
+    return await FhirServerProblem.Guard(async () =>
+    {
+        var (outcome, confirmed) = await handover.ConfirmAsync(patientId, minute, Language.From(body.Lang), ct);
+        return outcome switch
+        {
+            Baton.Api.Handover.ConfirmOutcome.Created => Results.Created($"/api/handover/{patientId}", new { documentId = confirmed!.DocumentId, at = confirmed.At }),
+            Baton.Api.Handover.ConfirmOutcome.UnknownPatient => Results.Problem($"Unknown patient '{patientId}'.", statusCode: StatusCodes.Status404NotFound),
+            _ => Results.Problem("This patient was already taken over at this minute.", statusCode: StatusCodes.Status409Conflict, title: "Already taken over"),
+        };
+    });
+});
+
 GC.KeepAlive(source);
 app.Run();
 
 public sealed record WardResponse(DateTimeOffset At, string Source, DateTimeOffset ShiftStart, DateTimeOffset ShiftEnd, IReadOnlyList<BedSummary> Beds);
+
+public sealed record HandoverConfirmRequest(DateTimeOffset At, string? Lang);
 
 public sealed record TryStartRequest(string PatientId, DateTimeOffset At);
 

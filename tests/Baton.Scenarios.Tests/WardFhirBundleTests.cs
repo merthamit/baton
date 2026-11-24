@@ -8,6 +8,15 @@ public class WardFhirBundleTests
     private static readonly WardBed Bed = Ward.Generate(CardFidelityTests.Quiet.ShiftStart, 42)[1];
 
     [Fact]
+    public void HandoverDeletionOrder_ProvenanceBeforeEachBundle()
+    {
+        Assert.Equal(
+            ["Provenance/prov-bundle-handover-synthetic-02-202611240800", "Bundle/handover-synthetic-02-202611240800"],
+            WardFhirLoader.HandoverDeletionOrder(["handover-synthetic-02-202611240800"]));
+        Assert.Equal("urn:baton:handover", WardFhirBundle.HandoverSystem);
+    }
+
+    [Fact]
     public void Bundle_IsATransactionWithThePatientAndEveryObservation()
     {
         var bundle = WardFhirBundle.Build(Bed);

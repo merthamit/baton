@@ -91,13 +91,7 @@ public sealed class WardService(IVitalSignsSource source, EscalationOptions? esc
             var records = await source.GetEscalationAsync(patient.Id, at, language, cancellationToken);
             var latest = points.Count > 0 ? points[^1] : null;
 
-            DateTimeOffset? nextDue = latest is null
-                ? null
-                : MonitoringSchedule.NextDue(
-                    latest.At,
-                    latest.Response,
-                    records.OfType<ConcernRaised>().Select(c => c.At).ToList());
-            int? overdue = nextDue is { } due ? (int)Math.Max(0, Math.Floor((at - due).TotalMinutes)) : null;
+            var (nextDue, overdue) = Due(latest, records, at);
 
             result.Add(new BedSummary(
                 patient.Id,
@@ -165,6 +159,46 @@ public sealed class WardService(IVitalSignsSource source, EscalationOptions? esc
             NonChain(events.Events, language),
             Chain(records, points, at),
             records.OrderBy(r => r.At).Select(EscalationRecordView.From).ToList());
+    }
+
+    /// <summary>
+    /// One patient's SBAR input and document snapshot at <paramref name="at"/>: scored points, chain records (texts in
+    /// <paramref name="language"/>), next observation due as on the board, and the raw Observations.
+    /// </summary>
+    public async Task<(Handover.SbarInput Input, Handover.HandoverSnapshot Snapshot)?> GetSbarInputAsync(
+        string patientId,
+        DateTimeOffset at,
+        DateTimeOffset shiftStart,
+        string? language,
+        IVitalSignsSource? overlay,
+        CancellationToken cancellationToken)
+    {
+        var source = overlay ?? this.source;
+        var patient = (await source.GetPatientsAsync(cancellationToken)).FirstOrDefault(p => p.Id == patientId);
+        if (patient is null)
+        {
+            return null;
+        }
+
+        var observations = await source.GetObservationsAsync(patient.Id, at, cancellationToken);
+        var records = await source.GetEscalationAsync(patient.Id, at, language, cancellationToken);
+        var points = await ScoreAsync(source, patient, at, cancellationToken);
+        var latest = points.Count > 0 ? points[^1] : null;
+        var (nextDue, overdue) = Due(latest, records, at);
+
+        var input = new Handover.SbarInput(patient, AgeAt(patient.BirthDate, at), points, records, at, shiftStart, nextDue, overdue, options);
+        var snapshot = new Handover.HandoverSnapshot(patient, observations, records, points.Select(p => new ScoreMark(p.At, p.Risk)).ToList(), options);
+        return (input, snapshot);
+    }
+
+    /// <summary>Next observation due (<see cref="MonitoringSchedule"/>, every concern counts) and minutes overdue.</summary>
+    private static (DateTimeOffset? NextDue, int? Overdue) Due(ScorePoint? latest, IReadOnlyList<EscalationRecord> records, DateTimeOffset at)
+    {
+        DateTimeOffset? nextDue = latest is null
+            ? null
+            : MonitoringSchedule.NextDue(latest.At, latest.Response, records.OfType<ConcernRaised>().Select(c => c.At).ToList());
+        int? overdue = nextDue is { } due ? (int)Math.Max(0, Math.Floor((at - due).TotalMinutes)) : null;
+        return (nextDue, overdue);
     }
 
     /// <summary>Scenario events that are now escalation records (shown from FHIR), so the timeline does not repeat them.</summary>

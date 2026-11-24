@@ -14,6 +14,9 @@ public static class WardFhirBundle
     public const string BedSystem = "urn:baton:bed";
     public const string TagSystem = "urn:baton:tag";
 
+    /// <summary>Identifier system of Baton's confirmed handover documents (Bundle type document).</summary>
+    public const string HandoverSystem = "urn:baton:handover";
+
     /// <summary>
     /// Baton extension on Patient: the recorded clinical decision to use SpO2 Scale 2 (sub-extensions
     /// authorisedBy and authorisedAt). There is no standard FHIR element for it yet.

@@ -24,7 +24,7 @@ public sealed record HandoverSnapshot(
 /// </summary>
 public static class HandoverDocument
 {
-    public const string IdentifierSystem = "urn:baton:handover";
+    public const string IdentifierSystem = WardFhirBundle.HandoverSystem;
     public const string Author = "Practitioner/synthetic-nurse";
     public const string Attester = "Practitioner/synthetic-incoming";
 

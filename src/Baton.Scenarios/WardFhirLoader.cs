@@ -29,6 +29,18 @@ public static class WardFhirLoader
         ArgumentNullException.ThrowIfNull(ward);
 
         await WaitUntilReadyAsync(client, log, cancellationToken);
+
+        // Handover documents describe the old ward: a reload removes them (Provenance first, it points at the Bundle).
+        var handovers = await IdsAsync<Bundle>(client, $"identifier={WardFhirBundle.HandoverSystem}|", cancellationToken);
+        foreach (var reference in HandoverDeletionOrder(handovers))
+        {
+            await client.DeleteAsync(reference, ct: cancellationToken);
+        }
+
+        if (handovers.Count > 0)
+        {
+            log?.Invoke($"Removed {handovers.Count} handover documents");
+        }
         foreach (var stale in StalePatientIds(await BatonPatientIdsAsync(client, cancellationToken), ward))
         {
             var chain = await DeleteEscalationAsync(client, stale, cancellationToken);
@@ -130,6 +142,13 @@ public static class WardFhirLoader
         }
 
         return ids;
+    }
+
+    /// <summary>For each handover document: its Provenance, then the Bundle.</summary>
+    public static IReadOnlyList<string> HandoverDeletionOrder(IEnumerable<string> bundleIds)
+    {
+        ArgumentNullException.ThrowIfNull(bundleIds);
+        return bundleIds.SelectMany(id => new[] { $"Provenance/prov-bundle-{id}", $"Bundle/{id}" }).ToList();
     }
 
     /// <summary>NEWS2 Observations first: they point at the readings they were scored from (<c>derivedFrom</c>).</summary>
