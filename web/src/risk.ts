@@ -1,4 +1,4 @@
-import type { Consciousness, News2Input, News2Parameter, ScorePoint } from './api/types';
+import type { Consciousness, News2Input, News2Parameter, RiskLevel, ScorePoint } from './api/types';
 import type { Messages } from './i18n/en';
 import type { ShapeName } from './ui/Icon';
 
@@ -6,23 +6,24 @@ import type { ShapeName } from './ui/Icon';
 export type Tier = 0 | 1 | 2 | 3;
 
 export function tierOf(point: ScorePoint | null): Tier | null {
-  if (!point || point.risk === null) {
-    return null;
-  }
-  if (point.risk === 'High') {
-    return 3;
-  }
-  if (point.risk === 'Medium' || point.risk === 'LowMedium') {
-    return 2;
-  }
-  return (point.total ?? 0) >= 1 ? 1 : 0;
+  return point ? tierOfRisk(point.risk, point.total) : null;
 }
 
-export const shapeOf = (tier: Tier | null): ShapeName =>
-  tier === null ? 'unknown' : (['circle', 'triangle', 'diamond', 'square'] as const)[tier];
+export function tierOfRisk(risk: RiskLevel | null, total: number | null): Tier | null {
+  if (risk === null) {
+    return null;
+  }
+  if (risk === 'High') {
+    return 3;
+  }
+  if (risk === 'Medium' || risk === 'LowMedium') {
+    return 2;
+  }
+  return (total ?? 0) >= 1 ? 1 : 0;
+}
 
-export function riskText(point: ScorePoint, t: Messages): string {
-  switch (point.risk) {
+export function riskName(risk: RiskLevel | null, t: Messages): string {
+  switch (risk) {
     case 'High':
       return t.riskHigh;
     case 'Medium':
@@ -34,6 +35,13 @@ export function riskText(point: ScorePoint, t: Messages): string {
     default:
       return t.incompleteScore;
   }
+}
+
+export const shapeOf = (tier: Tier | null): ShapeName =>
+  tier === null ? 'unknown' : (['circle', 'triangle', 'diamond', 'square'] as const)[tier];
+
+export function riskText(point: ScorePoint, t: Messages): string {
+  return riskName(point.risk, t);
 }
 
 export function parameterLabel(parameter: News2Parameter, t: Messages): string {

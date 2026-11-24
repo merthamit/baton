@@ -3,6 +3,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from './App';
 import { bed, noChain, point, ward } from './fixtures';
+import { handover, handoverRow } from './handover/fixtures';
 import { renderIn } from './test/render';
 import type { PatientSeries } from './api/types';
 
@@ -114,5 +115,22 @@ describe('App ward errors', () => {
 
     expect(await screen.findByText(/The FHIR server is not answering/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Bed 02/ })).toBeNull();
+  });
+});
+
+describe('App handover view', () => {
+  it('switches to the handover view and loads the list', async () => {
+    const fetchMock = route({
+      '/health': () => respond(200, { tryAvailable: true }),
+      '/api/ward': () => respond(200, ward(beds)),
+      '/api/handover': () => respond(200, handover([handoverRow()])),
+    });
+    renderIn(<App />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Handover' }));
+
+    expect(await screen.findByRole('button', { name: /Bed 02 · Ayşe K\./ })).toHaveTextContent('Open SBAR');
+    expect(fetchMock.mock.calls.some(([url]) => String(url).startsWith('/api/handover'))).toBe(true);
+    expect(window.location.search).toContain('view=handover');
   });
 });

@@ -69,6 +69,8 @@ export interface ScorePoint {
   problems: News2Problem[];
   input: News2Input;
   notes: string[];
+  /** FHIR references of the readings behind this score (and its NEWS2 Observation when stored). */
+  sources: string[];
 }
 
 export interface WardEvent {
@@ -166,4 +168,75 @@ export interface PatientSeries {
 /** "RespirationRate" → "respirationRate", the key of the same parameter in subScores. */
 export function subScoreKey(parameter: News2Parameter): SubScoreKey {
   return (parameter.charAt(0).toLowerCase() + parameter.slice(1)) as SubScoreKey;
+}
+
+// SBAR handover (week 8): /api/handover.
+
+export type SbarPart = 'Situation' | 'Background' | 'Assessment' | 'Recommendation';
+
+export type MissingKind =
+  | 'NoObservations'
+  | 'NoCallAfterScore'
+  | 'NoCriticalCareCall'
+  | 'NoArrival'
+  | 'NoAssessment'
+  | 'NoPlan'
+  | 'ObservationOverdue';
+
+export interface SourceRef {
+  reference: string;
+  at: string;
+  label: string;
+}
+
+export interface SbarSentence {
+  text: string;
+  sources: SourceRef[];
+}
+
+export interface SbarSection {
+  part: SbarPart;
+  sentences: SbarSentence[];
+}
+
+export interface MissingItem {
+  kind: MissingKind;
+  text: string;
+  sources: SourceRef[];
+}
+
+/** One patient's rule-based SBAR, rendered by the API in the requested language. */
+export interface Sbar {
+  at: string;
+  windowStart: string;
+  language: string;
+  sections: SbarSection[];
+  missing: MissingItem[];
+  stateLine: string;
+  currentTotal: number | null;
+  currentRisk: RiskLevel | null;
+  peakTotal: number | null;
+}
+
+export interface ConfirmedHandover {
+  documentId: string;
+  at: string;
+}
+
+export interface HandoverRow {
+  patientId: string;
+  bed: string | null;
+  name: string;
+  sbar: Sbar;
+  confirmed: ConfirmedHandover | null;
+  newDataSinceHandover: boolean;
+}
+
+/** The ward's handover at a moment, sickest first (the API orders the rows). */
+export interface HandoverResponse {
+  at: string;
+  windowStart: string;
+  canConfirm: boolean;
+  confirmedCount: number;
+  rows: HandoverRow[];
 }

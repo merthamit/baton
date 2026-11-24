@@ -32,6 +32,7 @@ export function point(overrides: Partial<ScorePoint> = {}): ScorePoint {
       consciousness: 'Alert',
     },
     notes: [],
+    sources: [],
     ...overrides,
   };
 }

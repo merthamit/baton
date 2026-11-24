@@ -14,6 +14,14 @@ describe('URL state', () => {
     expect(readUrlState('')).toEqual({});
   });
 
+  it('round-trips view=handover in the URL', () => {
+    const search = writeUrlState({ bed: 'synthetic-02', view: 'handover' });
+
+    expect(search).toBe('?bed=synthetic-02&view=handover');
+    expect(readUrlState(search)).toEqual({ bed: 'synthetic-02', view: 'handover' });
+    expect(readUrlState('?view=other')).toEqual({});
+  });
+
   it('ignores a time without an offset', () => {
     expect(readUrlState('?at=2026-11-23T23:30:00')).toEqual({});
   });

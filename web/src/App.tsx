@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiError, addTryAction, endTry, fetchHealth, fetchPatient, fetchWard, startTry, type TryActionKind } from './api/client';
+import { ApiError, addTryAction, confirmHandover, endTry, fetchHandover, fetchHealth, fetchPatient, fetchWard, startTry, type TryActionKind } from './api/client';
 import { useLatest } from './api/useLatest';
 import { BoardSkeleton, WardBoard } from './board/WardBoard';
 import { TimeControl } from './board/TimeControl';
+import { HandoverList } from './handover/HandoverList';
+import { SbarPanel } from './handover/SbarPanel';
 import { LanguageToggle, useT } from './i18n/LanguageProvider';
 import { ActionPanel } from './patient/ActionPanel';
 import { PatientDetail } from './patient/PatientDetail';
@@ -31,10 +33,15 @@ export function App() {
   const health = useLatest((signal) => fetchHealth(signal), []);
   const ward = useLatest((signal) => fetchWard(view.at, lang, signal, trySession?.id), [view.at, lang, trySession?.id, revision]);
   const at = view.at ?? ward.data?.at;
+  const onHandover = view.view === 'handover';
   const patient = useLatest(
-    (signal) => (view.bed && at ? fetchPatient(view.bed, at, lang, signal, trySession?.id) : Promise.resolve(undefined)),
-    [view.bed, at, lang, trySession?.id, revision],
+    (signal) => (!onHandover && view.bed && at ? fetchPatient(view.bed, at, lang, signal, trySession?.id) : Promise.resolve(undefined)),
+    [onHandover, view.bed, at, lang, trySession?.id, revision],
     view.bed,
+  );
+  const handover = useLatest(
+    (signal) => (onHandover && at ? fetchHandover(at, lang, signal, trySession?.id) : Promise.resolve(undefined)),
+    [onHandover, at, lang, trySession?.id, revision],
   );
 
   useEffect(() => {
@@ -45,7 +52,7 @@ export function App() {
   }, [view]);
 
   // A Try session the API no longer knows (expired, restarted) ends Try mode with a message; other 404s do not.
-  const expired = !!trySession && [ward.error, patient.error].some(isSessionGone);
+  const expired = !!trySession && [ward.error, patient.error, handover.error].some(isSessionGone);
   useEffect(() => {
     if (expired) {
       setTrySession(null);
@@ -59,6 +66,20 @@ export function App() {
     document.querySelector('.detail')?.scrollIntoView?.({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
   }, []);
   const setAt = useCallback((at: string) => setView((v) => ({ ...v, at })), []);
+  const showView = (next: 'board' | 'handover') => setView((v) => ({ ...v, view: next === 'handover' ? 'handover' : undefined }));
+
+  const takeOver = async (patientId: string): Promise<string | null> => {
+    if (!at) {
+      return null;
+    }
+    try {
+      await confirmHandover(patientId, at, lang);
+      setRevision((n) => n + 1);
+      return null;
+    } catch (e) {
+      return e instanceof ApiError ? e.title : String(e);
+    }
+  };
   const data = ward.data;
 
   const tryAvailable = health.data?.tryAvailable === true;
@@ -121,6 +142,14 @@ export function App() {
         <p className="notice">
           <strong>{t.syntheticNotice}</strong>
         </p>
+        <div className="seg" role="group" aria-label={t.viewLabel}>
+          <button type="button" aria-pressed={!onHandover} onClick={() => showView('board')}>
+            {t.viewBoard}
+          </button>
+          <button type="button" aria-pressed={onHandover} onClick={() => showView('handover')}>
+            {t.viewHandover}
+          </button>
+        </div>
         <div className="mode">
           <div className="seg" role="group" aria-label={t.modeLabel}>
             <button type="button" aria-pressed={!trySession} onClick={reset}>
@@ -175,10 +204,37 @@ export function App() {
         </div>
       )}
 
-      {/* After an error the last answer belongs to another moment than the clock shows: never display it. */}
-      {ward.error ? null : data ? <WardBoard ward={data} selectedId={view.bed} onSelect={selectBed} /> : <BoardSkeleton />}
+      {onHandover && !ward.error && (
+        <>
+          {handover.error && !expired ? (
+            <div className="alert" role="alert">
+              <p>{handover.error instanceof ApiError && handover.error.status === 503 ? t.fhirDown : t.handoverError}</p>
+              <button type="button" className="btn" onClick={handover.retry}>
+                {t.retry}
+              </button>
+            </div>
+          ) : handover.data ? (
+            <HandoverList response={handover.data} selectedId={view.bed} onSelect={selectBed} />
+          ) : (
+            <p className="muted">{t.handoverLoading}</p>
+          )}
+          <section className="detail" aria-label={t.handoverTitle}>
+            {(() => {
+              const row = handover.data?.rows.find((r) => r.patientId === view.bed);
+              return row && handover.data ? (
+                <SbarPanel key={`${row.patientId}-${handover.data.at}`} row={row} canConfirm={handover.data.canConfirm} onConfirm={() => takeOver(row.patientId)} />
+              ) : (
+                <p className="muted">{t.handoverSelectHint}</p>
+              );
+            })()}
+          </section>
+        </>
+      )}
 
-      {!ward.error && (
+      {/* After an error the last answer belongs to another moment than the clock shows: never display it. */}
+      {onHandover ? null : ward.error ? null : data ? <WardBoard ward={data} selectedId={view.bed} onSelect={selectBed} /> : <BoardSkeleton />}
+
+      {!onHandover && !ward.error && (
         <section className="detail" aria-label={t.observations}>
           {patient.error && !expired ? (
             <div className="alert" role="alert">

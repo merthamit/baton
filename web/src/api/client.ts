@@ -1,4 +1,4 @@
-import type { EscalationTier, PatientSeries, WardResponse } from './types';
+import type { EscalationTier, HandoverResponse, PatientSeries, WardResponse } from './types';
 
 /** A non-2xx answer from Baton.Api, with the problem details title and detail when there are any. */
 export class ApiError extends Error {
@@ -86,4 +86,14 @@ export function addTryAction(sessionId: string, action: TryActionBody): Promise<
 
 export function endTry(sessionId: string): Promise<void> {
   return send<void>(`/api/try/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+}
+
+/** The ward's handover at a moment, sickest first; `trySession` shows the Try course (it cannot be confirmed). */
+export function fetchHandover(at: string, lang?: string, signal?: AbortSignal, trySession?: string): Promise<HandoverResponse> {
+  return send<HandoverResponse>(`/api/handover${query({ at, lang, try: trySession })}`, { signal });
+}
+
+/** "Taken over": stores the patient's SBAR at this minute as a FHIR document. */
+export function confirmHandover(patientId: string, at: string, lang?: string): Promise<{ documentId: string; at: string }> {
+  return send(`/api/handover/${encodeURIComponent(patientId)}`, { method: 'POST', body: JSON.stringify({ at, lang }) });
 }
