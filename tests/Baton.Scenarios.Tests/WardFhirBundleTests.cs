@@ -78,7 +78,7 @@ public class WardFhirBundleTests
     {
         var ids = WardFhirBundle.Build(Bed).Entry.Select(e => e.Resource).OfType<Practitioner>().Select(p => p.Id).ToList();
 
-        Assert.Equal(["synthetic-nurse", "synthetic-oncall", "synthetic-senior", "synthetic-cct"], ids);
+        Assert.Equal(["synthetic-nurse", "synthetic-oncall", "synthetic-senior", "synthetic-cct", "synthetic-incoming"], ids);
     }
 
     [Fact]

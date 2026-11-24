@@ -130,7 +130,7 @@ public class EscalationFhirTests
     [Fact]
     public void Practitioners_AreTaggedSynthetic()
     {
-        Assert.Equal(4, EscalationFhir.Practitioners.Count);
+        Assert.Equal(5, EscalationFhir.Practitioners.Count);
         Assert.All(EscalationFhir.Practitioners, p => Assert.Contains(p.Meta!.Tag, t => t.Code == "synthetic"));
     }
 
