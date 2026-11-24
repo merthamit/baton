@@ -28,9 +28,12 @@ async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   return (await response.json()) as T;
 }
 
-/** The ward at a moment. `at` must carry its offset, e.g. 2026-11-23T23:30:00+03:00. */
-export function fetchWard(at: string, signal?: AbortSignal): Promise<WardResponse> {
-  return getJson<WardResponse>(`/api/ward?at=${encodeURIComponent(at)}`, signal);
+/**
+ * The ward at a moment. `at` must carry its offset, e.g. 2026-11-23T23:30:00+03:00; without it the API's default
+ * moment is used and the response says which moment that was.
+ */
+export function fetchWard(at: string | undefined, signal?: AbortSignal): Promise<WardResponse> {
+  return getJson<WardResponse>(at ? `/api/ward?at=${encodeURIComponent(at)}` : '/api/ward', signal);
 }
 
 /** One patient's scored series and events up to a moment. */

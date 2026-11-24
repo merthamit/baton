@@ -1,0 +1,63 @@
+import type { Consciousness, News2Input, News2Parameter, ScorePoint } from './api/types';
+import type { Messages } from './i18n/en';
+import type { ShapeName } from './ui/Icon';
+
+/** Display tier from the API's risk (no thresholds here): 0 score 0, 1 score 1–4, 2 single 3 or 5–6, 3 seven or more. */
+export type Tier = 0 | 1 | 2 | 3;
+
+export function tierOf(point: ScorePoint | null): Tier | null {
+  if (!point || point.risk === null) {
+    return null;
+  }
+  if (point.risk === 'High') {
+    return 3;
+  }
+  if (point.risk === 'Medium' || point.risk === 'LowMedium') {
+    return 2;
+  }
+  return (point.total ?? 0) >= 1 ? 1 : 0;
+}
+
+export const shapeOf = (tier: Tier | null): ShapeName =>
+  tier === null ? 'unknown' : (['circle', 'triangle', 'diamond', 'square'] as const)[tier];
+
+export function riskText(point: ScorePoint, t: Messages): string {
+  switch (point.risk) {
+    case 'High':
+      return t.riskHigh;
+    case 'Medium':
+      return t.riskMedium;
+    case 'LowMedium':
+      return t.riskLowMedium;
+    case 'Low':
+      return t.riskLow;
+    default:
+      return t.incompleteScore;
+  }
+}
+
+export function parameterLabel(parameter: News2Parameter, t: Messages): string {
+  return t[`param${parameter}`];
+}
+
+const acvpu: Record<Consciousness, string> = { Alert: 'A', Confusion: 'C', Voice: 'V', Pain: 'P', Unresponsive: 'U' };
+
+/** The reading behind a parameter, as a nurse writes it on the chart. */
+export function readingOf(parameter: News2Parameter, input: News2Input, t: Messages): string | null {
+  switch (parameter) {
+    case 'RespirationRate':
+      return input.respirationRate?.toString() ?? null;
+    case 'SpO2':
+      return input.spO2 === null ? null : `${input.spO2}%`;
+    case 'SupplementalOxygen':
+      return input.onSupplementalOxygen === null ? null : input.onSupplementalOxygen ? t.onOxygen : t.roomAir;
+    case 'SystolicBp':
+      return input.systolicBp?.toString() ?? null;
+    case 'PulseRate':
+      return input.pulseRate?.toString() ?? null;
+    case 'Consciousness':
+      return input.consciousness === null ? null : acvpu[input.consciousness];
+    case 'Temperature':
+      return input.temperatureCelsius === null ? null : input.temperatureCelsius.toFixed(1);
+  }
+}

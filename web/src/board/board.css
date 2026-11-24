@@ -1,0 +1,392 @@
+/* Ward board layout: header, time control, bed cards. Tokens come from styles/tokens.css. */
+
+::selection {
+  background: var(--accent);
+  color: var(--panel);
+}
+
+html {
+  scrollbar-color: var(--line) var(--bg);
+  accent-color: var(--accent);
+  caret-color: var(--accent);
+}
+
+.wrap {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 20px max(16px, env(safe-area-inset-right)) 44px max(16px, env(safe-area-inset-left));
+  display: grid;
+  gap: 18px;
+}
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 20px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: auto;
+  min-width: 0;
+}
+
+.mark {
+  color: var(--accent);
+  flex: none;
+}
+
+.notice {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--warn);
+  background: var(--warn-bg);
+  border-radius: 6px;
+  padding: 5px 10px;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px 28px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.controls p {
+  margin: 0;
+  font-size: 0.85rem;
+  max-width: 48ch;
+}
+
+.controls .source {
+  font-size: 0.75rem;
+  margin-left: auto;
+}
+
+.time {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.time-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.time input[type='range'] {
+  width: min(380px, 62vw);
+  min-height: 32px;
+}
+
+.clock {
+  font-size: 1.35rem;
+  font-weight: 600;
+  min-width: 5ch;
+}
+
+.alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  background: var(--bad-bg);
+  color: var(--bad);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+
+.alert p {
+  margin: 0;
+  font-weight: 700;
+}
+
+.btn {
+  border: 1px solid currentColor;
+  background: var(--panel);
+  border-radius: 7px;
+  padding: 6px 14px;
+  min-height: 36px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.btn:hover {
+  background: var(--bg);
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 285px), 1fr));
+  gap: 12px;
+}
+
+.empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 24px;
+  text-align: center;
+  background: var(--panel);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+}
+
+/* The 4B nurse card. Risk is a tinted score block with a shape and words; colour is never the only signal. */
+.bed {
+  all: unset;
+  box-sizing: border-box;
+  display: grid;
+  gap: 9px;
+  align-content: start;
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color var(--dur) ease-out, background-color var(--dur) ease-out;
+}
+
+.bed > span {
+  display: block;
+}
+
+.bed:hover {
+  border-color: var(--muted);
+}
+
+.bed:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.bed[aria-pressed='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.bed[data-tier='3'] {
+  border-color: var(--bad);
+}
+
+.bed-head {
+  display: flex !important;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.bed-title {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bed-dx {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.bed-score {
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
+}
+
+.score {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 9px;
+  padding: 4px 11px 4px 9px;
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.score-n {
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.score-side {
+  display: grid;
+  gap: 1px;
+}
+
+.risk {
+  font-weight: 700;
+}
+
+.trend {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+[data-tier='0'] .score {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+[data-tier='1'] .score {
+  background: var(--mid-bg);
+  color: var(--mid);
+}
+
+[data-tier='2'] .score {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+[data-tier='3'] .score {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+[data-tier='0'] .risk {
+  color: var(--ok);
+}
+
+[data-tier='1'] .risk {
+  color: var(--mid);
+}
+
+[data-tier='2'] .risk {
+  color: var(--warn);
+}
+
+[data-tier='3'] .risk {
+  color: var(--bad);
+}
+
+.bed-empty {
+  color: var(--muted);
+  font-size: 0.95rem;
+  padding: 10px 0;
+}
+
+.bed-details {
+  display: grid !important;
+  gap: 8px;
+}
+
+.drivers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 12px;
+  font-size: 0.84rem;
+}
+
+.driver {
+  font-weight: 600;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 7px;
+}
+
+.chip[data-tone='warn'] {
+  border-color: var(--warn);
+  color: var(--warn);
+  font-weight: 700;
+}
+
+.chip[data-tone='bad'] {
+  border-color: var(--bad);
+  color: var(--bad);
+  font-weight: 700;
+}
+
+.note {
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.icon {
+  flex: none;
+}
+
+.bed-due {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 0.8rem;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.due {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.due[data-state='overdue'] {
+  background: var(--bad-bg);
+  color: var(--bad);
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
+.due.continuous {
+  color: var(--bad);
+  font-weight: 700;
+}
+
+.last {
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.skeleton {
+  min-height: 176px;
+  cursor: default;
+  background: linear-gradient(var(--panel), var(--panel)) padding-box;
+  opacity: 0.6;
+}
+
+.detail {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  min-width: 0;
+}
+
+.detail > p {
+  margin: 0;
+}
+
+.foot {
+  font-size: 0.8rem;
+  max-width: 85ch;
+}

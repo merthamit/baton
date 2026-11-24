@@ -22,7 +22,6 @@ export const en = {
   riskLowMedium: 'Low–medium',
   riskMedium: 'Medium',
   riskHigh: 'High',
-  riskZero: 'Score 0',
 
   paramRespirationRate: 'Resp',
   paramSpO2: 'SpO₂',
@@ -38,6 +37,7 @@ export const en = {
   allNormal: 'All parameters normal',
   noObservations: 'No observations yet',
   missing: (parameter: string) => `${parameter} missing`,
+  notScored: (parameter: string) => `${parameter} not scored`,
   atLeast: (n: number) => `at least ${n}`,
   incompleteScore: 'Incomplete score',
 

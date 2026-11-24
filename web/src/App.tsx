@@ -1,20 +1,70 @@
+import { useCallback, useEffect, useState } from 'react';
+import { ApiError, fetchWard } from './api/client';
+import { useLatest } from './api/useLatest';
+import { BoardSkeleton, WardBoard } from './board/WardBoard';
+import { TimeControl } from './board/TimeControl';
 import { LanguageToggle, useT } from './i18n/LanguageProvider';
+import { readUrlState, writeUrlState } from './url';
+import './board/board.css';
 
-/** Shell; the board and patient detail are added in the next steps. */
 export function App() {
   const { t } = useT();
+  const [view, setView] = useState(() => readUrlState(window.location.search));
+  const ward = useLatest((signal) => fetchWard(view.at, signal), [view.at]);
+
+  useEffect(() => {
+    const search = writeUrlState(view);
+    if (search !== window.location.search) {
+      window.history.replaceState(null, '', `${window.location.pathname}${search}`);
+    }
+  }, [view]);
+
+  const selectBed = useCallback((bed: string) => setView((v) => ({ ...v, bed })), []);
+  const setAt = useCallback((at: string) => setView((v) => ({ ...v, at })), []);
+  const data = ward.data;
+
   return (
     <div className="wrap">
       <header className="top">
-        <div>
-          <div className="lbl">
-            {t.appName} · {t.boardTitle}
-          </div>
-          <h1>{t.wardName}</h1>
+        <div className="brand">
+          <svg className="mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+            <path d="M5 19 19 5" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" />
+            <circle cx="5" cy="19" r="2.6" fill="currentColor" />
+          </svg>
+          <h1>
+            {t.wardName} <span className="muted">· {t.boardTitle}</span>
+          </h1>
         </div>
-        <p className="notice">{t.syntheticNotice}</p>
+        <p className="notice">
+          <strong>{t.syntheticNotice}</strong>
+        </p>
         <LanguageToggle />
       </header>
+
+      {data && (
+        <section className="controls" aria-label={t.timeLabel}>
+          <TimeControl shiftStart={data.shiftStart} shiftEnd={data.shiftEnd} at={view.at ?? data.at} onChange={setAt} />
+          <p className="hint muted">{t.timeHint}</p>
+          <p className="source muted mono">{t.dataSource(data.source)}</p>
+        </section>
+      )}
+
+      {ward.error && (
+        <div className="alert" role="alert">
+          <p>{ward.error instanceof ApiError && ward.error.status === 503 ? t.fhirDown : t.loadError}</p>
+          <button type="button" className="btn" onClick={ward.retry}>
+            {t.retry}
+          </button>
+        </div>
+      )}
+
+      {data ? <WardBoard ward={data} selectedId={view.bed} onSelect={selectBed} /> : !ward.error && <BoardSkeleton />}
+
+      <section className="detail" aria-live="polite">
+        <p className="muted">{t.selectHint}</p>
+      </section>
+
+      <footer className="foot muted">{t.syntheticDetail}</footer>
     </div>
   );
 }

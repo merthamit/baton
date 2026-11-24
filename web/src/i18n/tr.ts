@@ -22,7 +22,6 @@ export const tr: Messages = {
   riskLowMedium: 'Düşük–orta',
   riskMedium: 'Orta',
   riskHigh: 'Yüksek',
-  riskZero: 'Puan 0',
 
   paramRespirationRate: 'Solunum',
   paramSpO2: 'SpO₂',
@@ -38,6 +37,7 @@ export const tr: Messages = {
   allNormal: 'Bütün bulgular normal',
   noObservations: 'Henüz ölçüm yok',
   missing: (parameter: string) => `${parameter} eksik`,
+  notScored: (parameter: string) => `${parameter} puanlanamadı`,
   atLeast: (n: number) => `en az ${n}`,
   incompleteScore: 'Eksik puan',
 
