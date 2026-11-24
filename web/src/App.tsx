@@ -12,6 +12,8 @@ import { ActionPanel } from './patient/ActionPanel';
 import { PatientDetail } from './patient/PatientDetail';
 import type { DialogResult } from './ui/ConfirmDialog';
 import { readUrlState, writeUrlState } from './url';
+import { refusalText } from './try/refusal';
+import { clock } from './time';
 import './board/board.css';
 
 /** The API's answer for a Try session it no longer has (see TryOverlay.Expired). */
@@ -170,7 +172,7 @@ export function App() {
         setTryMessage(t.tryExpired);
         return null;
       }
-      return e instanceof ApiError ? (e.detail ?? e.title) : String(e);
+      return e instanceof ApiError ? refusalText(e.type, e.detail ?? e.title, t, clock(trySession.lastActionAt)) : String(e);
     }
   };
 
@@ -283,7 +285,7 @@ export function App() {
             {(() => {
               const row = handover.data?.rows.find((r) => r.patientId === view.bed);
               return row && handover.data ? (
-                <SbarPanel key={`${row.patientId}-${handover.data.at}`} row={row} canConfirm={handover.data.canConfirm} onConfirm={() => takeOver(row.patientId)} />
+                <SbarPanel key={row.patientId} row={row} canConfirm={handover.data.canConfirm} onConfirm={() => takeOver(row.patientId)} />
               ) : (
                 <p className="muted">{t.handoverSelectHint}</p>
               );

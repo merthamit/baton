@@ -3,7 +3,7 @@ import type { BedSummary, News2Parameter } from '../api/types';
 import { subScoreKey } from '../api/types';
 import { useT } from '../i18n/LanguageProvider';
 import type { Messages } from '../i18n/en';
-import { parameterLabel, readingOf, riskText, shapeOf, tierOf } from '../risk';
+import { floorTierOf, parameterLabel, readingOf, riskText, shapeOf, tierOf } from '../risk';
 import { clock, minutesBetween } from '../time';
 import { Icon, Shape, type IconName } from '../ui/Icon';
 import { ChainStrip } from './ChainStrip';
@@ -58,7 +58,7 @@ export function BedCard({ bed, selected, onSelect }: BedCardProps) {
   const { t } = useT();
   const ids = { title: useId(), score: useId(), risk: useId(), due: useId(), details: useId() };
   const { latest, escalation } = bed;
-  const tier = tierOf(latest);
+  const tier = tierOf(latest) ?? floorTierOf(latest);
   const trend = trendText(bed, t);
   const label = bed.bed ? t.bed(bed.bed) : bed.patientId;
   const title = `${label} · ${bed.name}${bed.age !== null ? `, ${t.age(bed.age)}` : ''}`;
@@ -109,6 +109,10 @@ export function BedCard({ bed, selected, onSelect }: BedCardProps) {
       <span className="bed-details" id={ids.details}>
         {latest && latest.total === null && (
           <span className="drivers">
+            {latest.parametersScoring3.length > 0 && <span className="visually-hidden">{t.raisedBy}: </span>}
+            {latest.parametersScoring3.map((p) => (
+              <Driver key={`red-${p}`} bed={bed} parameter={p} t={t} />
+            ))}
             {latest.problems.map((p) => (
               <span key={p.parameter}>
                 {p.code === 'Missing' ? t.missing(parameterLabel(p.parameter, t)) : t.notScored(parameterLabel(p.parameter, t))}

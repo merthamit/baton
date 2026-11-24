@@ -30,3 +30,19 @@ describe('ConfirmDialog', () => {
     expect(onCancel).toHaveBeenCalled();
   });
 });
+
+describe('ConfirmDialog modality', () => {
+  it('opens as a real modal when the browser supports it', () => {
+    const showModal = vi.fn(function (this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    });
+    const original = HTMLDialogElement.prototype.showModal;
+    HTMLDialogElement.prototype.showModal = showModal;
+    try {
+      renderIn(<ConfirmDialog title="Taken over — Bed 02 · Ayşe K." onConfirm={vi.fn()} onCancel={vi.fn()} />);
+      expect(showModal).toHaveBeenCalled();
+    } finally {
+      HTMLDialogElement.prototype.showModal = original;
+    }
+  });
+});

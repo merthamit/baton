@@ -12,7 +12,8 @@ const withOffset = /(Z|[+-]\d{2}:\d{2})$/;
 export function readUrlState(search: string): UrlState {
   const params = new URLSearchParams(search);
   const state: UrlState = {};
-  const at = params.get('at');
+  // URLSearchParams turns an unencoded '+' into a space: put the offset's sign back.
+  const at = params.get('at')?.replace(/ (\d{2}:\d{2})$/, '+$1') ?? null;
   const bed = params.get('bed');
   if (at && withOffset.test(at)) {
     state.at = at;

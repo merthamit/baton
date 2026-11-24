@@ -5,13 +5,16 @@ export class ApiError extends Error {
   readonly status: number;
   readonly title: string;
   readonly detail: string | undefined;
+  /** The problem details type, e.g. urn:baton:try:no-arrival (a code the UI translates). */
+  readonly type: string | undefined;
 
-  constructor(status: number, title: string, detail?: string) {
+  constructor(status: number, title: string, detail?: string, type?: string) {
     super(`${status} ${title}`);
     this.name = 'ApiError';
     this.status = status;
     this.title = title;
     this.detail = detail;
+    this.type = type;
   }
 }
 
@@ -20,14 +23,16 @@ async function send<T>(url: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     let title = response.statusText;
     let detail: string | undefined;
+    let type: string | undefined;
     try {
-      const problem = (await response.json()) as { title?: string; detail?: string };
+      const problem = (await response.json()) as { title?: string; detail?: string; type?: string };
       title = problem.title ?? title;
       detail = problem.detail;
+      type = problem.type;
     } catch {
       // no problem details body
     }
-    throw new ApiError(response.status, title, detail);
+    throw new ApiError(response.status, title, detail, type);
   }
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
 }

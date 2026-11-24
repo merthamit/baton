@@ -577,6 +577,19 @@ dialog.confirm {
   box-shadow: 0 12px 40px rgb(0 0 0 / 0.3);
 }
 
+/* Opened with showModal(): the dialog lives in the top layer, centred, with the browser's own backdrop. */
+dialog.confirm:modal {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  height: fit-content;
+  max-width: calc(100% - 32px);
+}
+
+dialog.confirm::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
 dialog.confirm form {
   display: grid;
   gap: 12px;

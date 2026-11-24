@@ -16,3 +16,11 @@ describe('TimeControl', () => {
     expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'off');
   });
 });
+
+describe('TimeControl offset', () => {
+  it('shows the board moment in ward time whatever offset the link used', () => {
+    renderIn(<TimeControl shiftStart="2026-11-23T08:00:00+03:00" shiftEnd="2026-11-24T08:00:00+03:00" at="2026-11-23T20:38:00Z" onChange={vi.fn()} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('23:38');
+  });
+});

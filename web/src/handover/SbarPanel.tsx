@@ -27,7 +27,8 @@ export function SbarPanel({ row, canConfirm, onConfirm }: SbarPanelProps) {
   const [busy, setBusy] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
   const bedLabel = row.bed ? t.bed(row.bed) : row.patientId;
-  const confirmedNow = !!row.confirmed && Date.parse(row.confirmed.at) === Date.parse(row.sbar.at);
+  const minute = (iso: string) => Math.floor(Date.parse(iso) / 60_000);
+  const confirmedNow = !!row.confirmed && minute(row.confirmed.at) === minute(row.sbar.at);
 
   const confirm = async () => {
     setAsking(false);

@@ -22,6 +22,10 @@ describe('URL state', () => {
     expect(readUrlState('?view=other')).toEqual({});
   });
 
+  it('reads an unencoded plus in the offset', () => {
+    expect(readUrlState('?at=2026-11-23T23:30:00+03:00')).toEqual({ at: '2026-11-23T23:30:00+03:00' });
+  });
+
   it('ignores a time without an offset', () => {
     expect(readUrlState('?at=2026-11-23T23:30:00')).toEqual({});
   });

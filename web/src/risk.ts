@@ -9,6 +9,20 @@ export function tierOf(point: ScorePoint | null): Tier | null {
   return point ? tierOfRisk(point.risk, point.total) : null;
 }
 
+/**
+ * For an incomplete set (no risk), the least tier its known parts already show: a minimum total of 7 or more, or of
+ * 5–6 or a parameter scoring 3. Null when nothing known raises it.
+ */
+export function floorTierOf(point: ScorePoint | null): Tier | null {
+  if (!point || point.risk !== null) {
+    return null;
+  }
+  if ((point.minimumTotal ?? 0) >= 7) {
+    return 3;
+  }
+  return (point.minimumTotal ?? 0) >= 5 || point.parametersScoring3.length > 0 ? 2 : null;
+}
+
 export function tierOfRisk(risk: RiskLevel | null, total: number | null): Tier | null {
   if (risk === null) {
     return null;

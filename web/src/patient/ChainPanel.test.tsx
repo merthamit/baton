@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { ChainPanel } from './ChainPanel';
 import { chain, noChain } from '../fixtures';
@@ -43,5 +43,21 @@ describe('ChainPanel', () => {
   it('says when there is no escalation yet', () => {
     renderIn(<ChainPanel state={noChain} records={[]} />);
     expect(screen.getByText('No escalation yet.')).toBeInTheDocument();
+  });
+});
+
+describe('ChainPanel keys', () => {
+  it('lists two calls in the same minute without a key clash', () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const same: EscalationRecordView[] = [
+      { at: '2026-11-23T23:19:00+03:00', kind: 'Called', by: 'Practitioner/synthetic-you', tier: 'OnCallDoctor', text: null, simulated: null },
+      { at: '2026-11-23T23:19:00+03:00', kind: 'Called', by: 'Practitioner/synthetic-you', tier: 'SeniorDoctor', text: null, simulated: null },
+    ];
+    try {
+      renderIn(<ChainPanel state={chain()} records={same} />);
+      expect(error.mock.calls.some((c) => String(c[0]).includes('same key'))).toBe(false);
+    } finally {
+      error.mockRestore();
+    }
   });
 });

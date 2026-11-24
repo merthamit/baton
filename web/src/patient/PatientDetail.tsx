@@ -12,8 +12,8 @@ import './patient.css';
 
 /** Chart markers from the escalation records (the assessment shares the arrival's marker) and Baton's alerts. */
 function markersOf(records: EscalationRecordView[], events: WardEvent[]): ChartMarker[] {
-  const fromRecords = records.flatMap<ChartMarker>((r) => {
-    const key = `${r.kind}-${r.at}-${r.by}`;
+  const fromRecords = records.flatMap<ChartMarker>((r, i) => {
+    const key = `${r.kind}-${r.at}-${r.by}-${i}`;
     switch (r.kind) {
       case 'ConcernRaised':
       case 'PatientOrFamilyConcern':

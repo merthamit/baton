@@ -31,7 +31,8 @@ export function TimeControl({ shiftStart, shiftEnd, at, onChange, onUserMove, qu
 
   // While dragging the label follows the slider; otherwise it is the board's own moment (the live clock is not on
   // 15-minute steps, and the label must never show another time than the cards).
-  const shown = step === toStep(at) ? at : addMinutes(shiftStart, step * stepMinutes);
+  const wardAt = addMinutes(shiftStart, (Date.parse(at) - Date.parse(shiftStart)) / 60_000); // `at` in the ward's offset
+  const shown = step === toStep(at) ? wardAt : addMinutes(shiftStart, step * stepMinutes);
 
   return (
     <div className="time">

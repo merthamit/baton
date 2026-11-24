@@ -62,3 +62,15 @@ describe('SbarPanel', () => {
     expect(screen.getByRole('button', { name: 'Devraldım' })).toBeInTheDocument();
   });
 });
+
+describe('SbarPanel confirmation to the minute', () => {
+  it('treats a handover stored at the minute as this moment', () => {
+    const row = handoverRow({
+      confirmed: { documentId: 'handover-synthetic-02-202611240800', at: '2026-11-24T08:00:00+03:00' },
+      sbar: sbar({ at: '2026-11-24T08:00:40+03:00' }),
+    });
+    renderIn(<SbarPanel row={row} canConfirm onConfirm={vi.fn()} />);
+
+    expect(screen.queryByRole('button', { name: 'Taken over' })).toBeNull();
+  });
+});

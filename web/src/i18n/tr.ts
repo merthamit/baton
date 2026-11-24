@@ -168,6 +168,14 @@ export const tr: Messages = {
   handoverTryNote: 'Dene modu bir prova: devirler saklanmaz.',
   handoverAlready: 'Bu hasta bu anda zaten devralınmış.',
 
+  tryRefusalUnknown: 'Bu işlem tanınmıyor.',
+  tryRefusalTooMany: 'Bu Dene oturumu doldu. Baştan başlamak için sıfırlayın.',
+  tryRefusalNoteTooLong: 'Not çok uzun (en çok 500 karakter).',
+  tryRefusalBeforeLast: (time: string) => `Saati ${time} ya da sonrasına getirin: işlemler sırayla kaydedilir.`,
+  tryRefusalOutsideShift: 'İşlem vardiya içinde olmalı.',
+  tryRefusalNoArrival: 'Çağırdığınız hekim henüz gelmedi: değerlendirme ve plan için o hekimin gelmiş olması gerekir.',
+  tryRefusalAssessmentFirst: 'Önce değerlendirmeyi, sonra planı kaydedin.',
+
   liveLabel: 'Akan saat',
   livePlay: 'Vardiyayı oynat',
   livePause: 'Durdur',

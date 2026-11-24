@@ -159,3 +159,20 @@ describe('BedCard as a control', () => {
     expect(onSelect).toHaveBeenCalledWith('synthetic-02');
   });
 });
+
+describe('BedCard incomplete set', () => {
+  it('never hides a red parameter behind a missing one', () => {
+    const latest = point({
+      total: null,
+      minimumTotal: 8,
+      risk: null,
+      parametersScoring3: ['RespirationRate'],
+      problems: [{ parameter: 'Temperature', code: 'Missing', message: 'not measured' }],
+    });
+    const button = card(bed({ latest }));
+
+    expect(button).toHaveAttribute('data-tier', '3');
+    expect(button).toHaveTextContent('Resp');
+    expect(button).toHaveTextContent('Temp missing');
+  });
+});

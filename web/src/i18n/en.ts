@@ -168,6 +168,14 @@ export const en = {
   handoverTryNote: 'Try mode is a rehearsal: handovers are not stored.',
   handoverAlready: 'This patient was already taken over at this moment.',
 
+  tryRefusalUnknown: 'This action is not known.',
+  tryRefusalTooMany: 'This Try session is full. Reset to start again.',
+  tryRefusalNoteTooLong: 'The note is too long (at most 500 characters).',
+  tryRefusalBeforeLast: (time: string) => `Move the clock to ${time} or later: actions are recorded in order.`,
+  tryRefusalOutsideShift: 'The action must be inside the shift.',
+  tryRefusalNoArrival: 'The doctor you called has not arrived yet: an assessment or plan needs that doctor there.',
+  tryRefusalAssessmentFirst: 'Record the assessment before the plan.',
+
   liveLabel: 'Live clock',
   livePlay: 'Play the shift',
   livePause: 'Pause',

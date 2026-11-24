@@ -46,8 +46,8 @@ export function ChainPanel({ state, records }: { state: EscalationState; records
         <p className="muted">{t.noEscalation}</p>
       ) : (
         <ol aria-labelledby={id}>
-          {ordered.map((r) => (
-            <li key={`${r.kind}-${r.at}-${r.by}`} data-kind={r.kind}>
+          {ordered.map((r, i) => (
+            <li key={`${r.kind}-${r.at}-${r.by}-${r.tier ?? ''}-${i}`} data-kind={r.kind}>
               <span className="tm mono">{clock(r.at)}</span>
               <span>
                 <b>{title(r, t)}</b> <span className="muted">{role(r.by, t)}</span>

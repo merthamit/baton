@@ -27,12 +27,29 @@ export function ConfirmDialog({ title, withNote, withTier, defaultTier = 'OnCall
   const [text, setText] = useState('');
   const [tier, setTier] = useState<EscalationTier>(defaultTier);
   const first = useRef<HTMLTextAreaElement & HTMLButtonElement>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
   const cancel = useRef(onCancel);
   cancel.current = onCancel;
 
   // Once per opening: focus the first field, close on Escape, and give focus back to whatever opened the dialog.
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // showModal() traps focus and makes the page behind inert; without it (older browsers, tests) it stays open.
+    const element = dialog.current;
+    if (element && typeof element.showModal === 'function' && !element.open) {
+      try {
+        element.showModal();
+      } catch {
+        element.setAttribute('open', '');
+      }
+    } else {
+      element?.setAttribute('open', '');
+    }
+    const onNativeCancel = (e: Event) => {
+      e.preventDefault(); // Esc: let React close it, so focus returns to the opener
+      cancel.current();
+    };
+    element?.addEventListener('cancel', onNativeCancel);
     first.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -42,13 +59,18 @@ export function ConfirmDialog({ title, withNote, withTier, defaultTier = 'OnCall
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('keydown', onKey);
+      element?.removeEventListener('cancel', onNativeCancel);
+      // Close the modal before it leaves the page, then give focus back to whatever opened it.
+      if (element?.open && typeof element.close === 'function') {
+        element.close();
+      }
       opener?.focus();
     };
   }, []);
 
   return (
     <div className="dialog-backdrop">
-      <dialog open aria-modal="true" aria-labelledby={titleId} className="confirm">
+      <dialog ref={dialog} aria-modal="true" aria-labelledby={titleId} className="confirm">
         <form
           method="dialog"
           onSubmit={(e) => {

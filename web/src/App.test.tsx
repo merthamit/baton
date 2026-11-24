@@ -251,3 +251,26 @@ describe('App handover conflict', () => {
   });
 });
 
+describe('App handover dialog while the data refreshes', () => {
+  it('keeps the Taken over dialog open when the handover is fetched again', async () => {
+    window.history.replaceState(null, '', '/?view=handover&bed=synthetic-02');
+    FakeEventSource.install();
+    let calls = 0;
+    route({
+      '/health': () => respond(200, { tryAvailable: true }),
+      '/api/ward': () => respond(200, ward(beds)),
+      '/api/handover': () => {
+        calls += 1;
+        return respond(200, handover([handoverRow()], { at: calls === 1 ? '2026-11-24T08:00:00+03:00' : '2026-11-24T08:02:00+03:00' }));
+      },
+    });
+    renderIn(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Taken over' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    act(() => FakeEventSource.last().emit('change', { kind: 'Fhir', patientId: 'synthetic-03', trySession: null, at: '2026-11-24T08:00:00Z' }));
+    await waitFor(() => expect(calls).toBeGreaterThan(1));
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+});
