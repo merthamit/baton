@@ -270,7 +270,7 @@ public sealed class WardShifts(TimeProvider time, BatonOptionsSnapshot settings)
             }
 
             var own = shift.RecordsOf(patientId);
-            var mine = (past ?? []).Where(r => r.At < shift.StartedAt).Concat(own).ToList();
+            var mine = (past ?? []).Where(r => r.At < shift.StartedAt).Concat(own).OrderBy(r => r.At).ToList();
             var latest = mine.OfType<Called>().LastOrDefault();
             bool Has<T>(Func<T, bool> match) => mine.OfType<T>().Any(match);
             var arrived = latest is not null && Has<Arrived>(a => a.CallId == latest.CallId);
@@ -321,6 +321,11 @@ public sealed class WardShifts(TimeProvider time, BatonOptionsSnapshot settings)
                         return new("no-arrival", "The called clinician has not arrived yet.");
                     }
 
+                    if (Has<Assessed>(a => a.CallId == latest.CallId))
+                    {
+                        return new("already-assessed", "This call already has an assessment.");
+                    }
+
                     shift.Add(patientId, new Assessed(now, clinician, latest.CallId, note));
                     return null;
                 default: // Plan
@@ -332,6 +337,11 @@ public sealed class WardShifts(TimeProvider time, BatonOptionsSnapshot settings)
                     if (!Has<Assessed>(a => a.CallId == latest.CallId))
                     {
                         return new("assessment-first", "Record the assessment before the plan.");
+                    }
+
+                    if (Has<Planned>(p => p.CallId == latest.CallId))
+                    {
+                        return new("already-planned", "This call already has a plan.");
                     }
 
                     shift.Add(patientId, new Planned(now, clinician, latest.CallId, note));

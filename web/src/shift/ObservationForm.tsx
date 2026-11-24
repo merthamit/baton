@@ -10,13 +10,13 @@ import { shiftRefusalText } from '../try/refusal';
 
 type FieldKey = Exclude<keyof VitalSet, 'consciousness'>;
 
-const numberFields: { key: FieldKey; score: SubScoreKey; step: string }[] = [
-  { key: 'respirationRate', score: 'respirationRate', step: '1' },
-  { key: 'spO2', score: 'spO2', step: '1' },
-  { key: 'oxygenLitresPerMinute', score: 'supplementalOxygen', step: '0.5' },
-  { key: 'systolicBp', score: 'systolicBp', step: '1' },
-  { key: 'pulseRate', score: 'pulseRate', step: '1' },
-  { key: 'temperatureCelsius', score: 'temperature', step: '0.1' },
+const numberFields: { key: FieldKey; score: SubScoreKey }[] = [
+  { key: 'respirationRate', score: 'respirationRate' },
+  { key: 'spO2', score: 'spO2' },
+  { key: 'oxygenLitresPerMinute', score: 'supplementalOxygen' },
+  { key: 'systolicBp', score: 'systolicBp' },
+  { key: 'pulseRate', score: 'pulseRate' },
+  { key: 'temperatureCelsius', score: 'temperature' },
 ];
 
 const levels: Consciousness[] = ['Alert', 'Confusion', 'Voice', 'Pain', 'Unresponsive'];
@@ -74,7 +74,6 @@ interface ObservationFormProps {
   patientId: string;
   bedLabel: string;
   name: string;
-  scale: 'Scale1' | 'Scale2';
   onSaved: () => void;
   onClose: () => void;
 }
@@ -83,7 +82,7 @@ interface ObservationFormProps {
  * The bedside entry form (phone width): "Measure now" fills in what the monitor reads, the nurse checks and corrects,
  * the score from the API's own engine updates as they type (decision 25), and after saving it says what to do next.
  */
-export function ObservationForm({ shiftId, patientId, bedLabel, name, scale, onSaved, onClose }: ObservationFormProps) {
+export function ObservationForm({ shiftId, patientId, bedLabel, name, onSaved, onClose }: ObservationFormProps) {
   const { t } = useT();
   const titleId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -132,7 +131,7 @@ export function ObservationForm({ shiftId, patientId, bedLabel, name, scale, onS
     }
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      previewScore(JSON.parse(key) as VitalSet, scale, controller.signal)
+      previewScore(JSON.parse(key) as VitalSet, patientId, shiftId, controller.signal)
         .then(setPreview)
         .catch(() => setPreview(null));
     }, 250);
@@ -140,7 +139,7 @@ export function ObservationForm({ shiftId, patientId, bedLabel, name, scale, onS
       clearTimeout(timer);
       controller.abort();
     };
-  }, [key, scale]);
+  }, [key, patientId, shiftId]);
 
   const explain = (e: unknown) =>
     e instanceof ApiError ? shiftRefusalText(e.type, e.detail ?? e.title, t, e.field ? fieldLabel(e.field, t) : undefined) : String(e);
@@ -229,14 +228,14 @@ export function ObservationForm({ shiftId, patientId, bedLabel, name, scale, onS
                       <span className="obs-input">
                         <input
                           inputMode="decimal"
-                          type="number"
-                          step={f.step}
+                          type="text"
+                          autoComplete="off"
                           value={draft[f.key]}
                           onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
                           required
                         />
                         {sub !== undefined && sub !== null && (
-                          <span className="obs-sub mono" data-score={sub}>
+                          <span className="obs-sub mono" data-score={sub} aria-hidden="true">
                             +{sub}
                           </span>
                         )}
@@ -255,7 +254,7 @@ export function ObservationForm({ shiftId, patientId, bedLabel, name, scale, onS
                       ))}
                     </select>
                     {preview?.subScores.consciousness !== undefined && preview.subScores.consciousness !== null && (
-                      <span className="obs-sub mono" data-score={preview.subScores.consciousness}>
+                      <span className="obs-sub mono" data-score={preview.subScores.consciousness} aria-hidden="true">
                         +{preview.subScores.consciousness}
                       </span>
                     )}

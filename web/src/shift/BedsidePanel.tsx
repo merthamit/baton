@@ -14,7 +14,6 @@ interface BedsidePanelProps {
   patientId: string;
   bedLabel: string;
   name: string;
-  scale: 'Scale1' | 'Scale2';
   state: EscalationState;
   onChanged: () => void;
 }
@@ -28,9 +27,10 @@ interface Pending {
 }
 
 /** The nurse at the bedside in a shift: enter a set, record why one was not taken, raise a concern, call. */
-export function BedsidePanel({ shiftId, patientId, bedLabel, name, scale, state, onChanged }: BedsidePanelProps) {
+export function BedsidePanel({ shiftId, patientId, bedLabel, name, state, onChanged }: BedsidePanelProps) {
   const { t } = useT();
   const reasonId = useId();
+  const formId = useId();
   const [entering, setEntering] = useState(false);
   const [notDone, setNotDone] = useState(false);
   const [reason, setReason] = useState<NotDoneReason>('PatientAsleep');
@@ -65,7 +65,7 @@ export function BedsidePanel({ shiftId, patientId, bedLabel, name, scale, state,
         <button type="button" className="btn primary" disabled={busy} onClick={() => setEntering(true)}>
           {t.actObserve}
         </button>
-        <button type="button" className="btn" disabled={busy} aria-expanded={notDone} onClick={() => setNotDone((v) => !v)}>
+        <button type="button" className="btn" disabled={busy} aria-expanded={notDone} aria-controls={formId} onClick={() => setNotDone((v) => !v)}>
           {t.actNotDone}
         </button>
         <button type="button" className="btn" disabled={busy} onClick={() => setPending({ kind: 'Concern', label: t.actConcern, withNote: true, withTier: false })}>
@@ -91,6 +91,7 @@ export function BedsidePanel({ shiftId, patientId, bedLabel, name, scale, state,
 
       {notDone && (
         <form
+          id={formId}
           className="not-done"
           onSubmit={(e) => {
             e.preventDefault();
@@ -125,7 +126,6 @@ export function BedsidePanel({ shiftId, patientId, bedLabel, name, scale, state,
           patientId={patientId}
           bedLabel={bedLabel}
           name={name}
-          scale={scale}
           onSaved={onChanged}
           onClose={() => setEntering(false)}
         />

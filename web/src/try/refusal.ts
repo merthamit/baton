@@ -46,6 +46,10 @@ export function shiftRefusalText(type: string | undefined, detail: string, t: Me
       return t.shiftRefusalNoArrival;
     case 'assessment-first':
       return t.tryRefusalAssessmentFirst;
+    case 'already-assessed':
+      return t.shiftRefusalAlreadyAssessed;
+    case 'already-planned':
+      return t.shiftRefusalAlreadyPlanned;
     case 'unknown':
       return t.tryRefusalUnknown;
     default:

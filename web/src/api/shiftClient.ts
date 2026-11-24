@@ -51,6 +51,7 @@ export function fetchCalls(id: string, lang?: string, signal?: AbortSignal): Pro
   return send(`${base(id)}/calls${lang ? `?lang=${encodeURIComponent(lang)}` : ''}`, { signal });
 }
 
-export function previewScore(vitals: VitalSet, scale: 'Scale1' | 'Scale2', signal?: AbortSignal): Promise<News2Preview> {
-  return send<News2Preview>('/api/news2', { method: 'POST', body: JSON.stringify({ vitals, scale }), signal });
+/** Scores a set without storing it, with the patient's SpO2 scale and Scale 2 decision as at the shift's now. */
+export function previewScore(vitals: VitalSet, patientId: string, shift: string, signal?: AbortSignal): Promise<News2Preview> {
+  return send<News2Preview>('/api/news2', { method: 'POST', body: JSON.stringify({ vitals, patientId, shift }), signal });
 }

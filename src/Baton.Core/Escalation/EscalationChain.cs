@@ -54,7 +54,8 @@ public static class EscalationChain
             : latest.AcknowledgedAt is not null ? EscalationStep.Acknowledged
             : EscalationStep.Called;
 
-        var open = calls.LastOrDefault(c => c.ArrivedAt is null);
+        // A call no longer waits once a later call has been answered (a more senior clinician is already there).
+        var open = calls.LastOrDefault(c => c.ArrivedAt is null && !calls.Any(l => l.CalledAt > c.CalledAt && l.ArrivedAt is not null));
         int? waited = open is null ? null : (int)Math.Floor((moment - open.CalledAt).TotalMinutes);
         var passed = open?.TargetAt is { } target && target < moment;
 

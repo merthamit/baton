@@ -91,6 +91,11 @@ app.MapGet("/api/ward", async (string? at, string? lang, [Microsoft.AspNetCore.M
         return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
     }
 
+    if (!string.IsNullOrEmpty(trySession) && !string.IsNullOrEmpty(shift))
+    {
+        return Results.Problem("Use either a Try session or a shift, not both.", statusCode: StatusCodes.Status400BadRequest);
+    }
+
     var (overlay, tryProblem) = TryOverlay.Resolve(trySession, tries, source);
     if (tryProblem is not null)
     {
@@ -98,7 +103,7 @@ app.MapGet("/api/ward", async (string? at, string? lang, [Microsoft.AspNetCore.M
     }
 
     // A shift answers at its own running ward clock, whatever `at` says.
-    var (shiftOverlay, shiftNow, shiftProblem) = Baton.Api.Shift.ShiftEndpoints.Resolve(shift, shifts, source);
+    var (shiftOverlay, shiftNow, shiftProblem) = Baton.Api.Shift.ShiftEndpoints.Resolve(shift, shifts, source, trySession);
     if (shiftProblem is not null)
     {
         return shiftProblem;
@@ -118,6 +123,11 @@ app.MapGet("/api/patients/{id}", async (string id, string? at, string? lang, [Mi
         return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
     }
 
+    if (!string.IsNullOrEmpty(trySession) && !string.IsNullOrEmpty(shift))
+    {
+        return Results.Problem("Use either a Try session or a shift, not both.", statusCode: StatusCodes.Status400BadRequest);
+    }
+
     var (overlay, tryProblem) = TryOverlay.Resolve(trySession, tries, source);
     if (tryProblem is not null)
     {
@@ -125,7 +135,7 @@ app.MapGet("/api/patients/{id}", async (string id, string? at, string? lang, [Mi
     }
 
     // A shift answers at its own running ward clock, whatever `at` says.
-    var (shiftOverlay, shiftNow, shiftProblem) = Baton.Api.Shift.ShiftEndpoints.Resolve(shift, shifts, source);
+    var (shiftOverlay, shiftNow, shiftProblem) = Baton.Api.Shift.ShiftEndpoints.Resolve(shift, shifts, source, trySession);
     if (shiftProblem is not null)
     {
         return shiftProblem;
@@ -227,13 +237,20 @@ app.MapMethods("/api/fhir/notify/{**path}", ["POST", "PUT", "DELETE"], Notify);
 // Live board: "something changed, refetch" as Server-Sent Events (decision 18A).
 // A Try session or a shift sees its own changes (never another's) and the shared ones.
 app.MapGet("/api/live", ([Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, string? shift, Baton.Api.Live.WardChangeFeed feed, CancellationToken ct) =>
-    TypedResults.ServerSentEvents(feed.Stream(TimeSpan.FromSeconds(25), !string.IsNullOrEmpty(trySession) ? trySession : string.IsNullOrEmpty(shift) ? null : shift, ct)));
+    !string.IsNullOrEmpty(trySession) && !string.IsNullOrEmpty(shift)
+        ? Results.Problem("Use either a Try session or a shift, not both.", statusCode: StatusCodes.Status400BadRequest)
+        : (IResult)TypedResults.ServerSentEvents(feed.Stream(TimeSpan.FromSeconds(25), !string.IsNullOrEmpty(trySession) ? trySession : string.IsNullOrEmpty(shift) ? null : shift, ct)));
 
 app.MapGet("/api/handover", async (string? at, string? lang, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, string? shift, Baton.Api.Handover.HandoverService handover, TrySessions tries, Baton.Api.Shift.WardShifts shifts, CancellationToken ct) =>
 {
     if (!TimeQuery.TryParse(at, settings.DefaultAt, out var moment, out var error))
     {
         return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
+    }
+
+    if (!string.IsNullOrEmpty(trySession) && !string.IsNullOrEmpty(shift))
+    {
+        return Results.Problem("Use either a Try session or a shift, not both.", statusCode: StatusCodes.Status400BadRequest);
     }
 
     var (overlay, tryProblem) = TryOverlay.Resolve(trySession, tries, source);
@@ -243,7 +260,7 @@ app.MapGet("/api/handover", async (string? at, string? lang, [Microsoft.AspNetCo
     }
 
     // A shift answers at its own running ward clock, whatever `at` says.
-    var (shiftOverlay, shiftNow, shiftProblem) = Baton.Api.Shift.ShiftEndpoints.Resolve(shift, shifts, source);
+    var (shiftOverlay, shiftNow, shiftProblem) = Baton.Api.Shift.ShiftEndpoints.Resolve(shift, shifts, source, trySession);
     if (shiftProblem is not null)
     {
         return shiftProblem;
@@ -257,8 +274,13 @@ app.MapGet("/api/handover", async (string? at, string? lang, [Microsoft.AspNetCo
 });
 
 // "Taken over": stores the patient's SBAR at that minute as a FHIR document. Never in Try mode (a rehearsal).
-app.MapPost("/api/handover/{patientId}", async (string patientId, HandoverConfirmRequest body, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, Baton.Api.Handover.HandoverService handover, Baton.Api.Live.WardChangeFeed feed, CancellationToken ct) =>
+app.MapPost("/api/handover/{patientId}", async (string patientId, HandoverConfirmRequest body, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, string? shift, Baton.Api.Handover.HandoverService handover, Baton.Api.Live.WardChangeFeed feed, CancellationToken ct) =>
 {
+    if (!string.IsNullOrEmpty(shift))
+    {
+        return Results.Problem("A shift is a rehearsal: its handover is not stored.", statusCode: StatusCodes.Status409Conflict, title: "Handover not stored in a shift");
+    }
+
     if (!string.IsNullOrEmpty(trySession))
     {
         return Results.Problem("A Try session is a rehearsal: its handover is not stored.", statusCode: StatusCodes.Status409Conflict, title: "Handover not stored in Try");

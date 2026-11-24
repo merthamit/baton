@@ -15,7 +15,8 @@ public sealed record ShiftNotDoneRequest(string PatientId, NotDoneReason Reason,
 
 public sealed record ShiftActionRequest(string PatientId, ShiftActionKind Kind, string? Text, EscalationTier? Tier);
 
-public sealed record ScorePreviewRequest(VitalSet Vitals, SpO2Scale? Scale);
+/// <summary>A set to score without storing. With a patient, their SpO2 scale and Scale 2 decision apply (at the shift's now).</summary>
+public sealed record ScorePreviewRequest(VitalSet Vitals, SpO2Scale? Scale, string? PatientId = null, string? Shift = null);
 
 /// <summary>A shift's clock as the UI needs it.</summary>
 public sealed record ShiftState(string ShiftId, DateTimeOffset StartedAt, DateTimeOffset Now, int Speed, DateTimeOffset ShiftEnd);
@@ -238,7 +239,7 @@ public static class ShiftEndpoints
         });
 
         // Score preview for the bedside form: the same engine, nothing stored (decision 25).
-        app.MapPost("/api/news2", (ScorePreviewRequest body) =>
+        app.MapPost("/api/news2", async (ScorePreviewRequest body, WardShifts shifts, CancellationToken ct) =>
         {
             if (body.Vitals is null)
             {
@@ -250,16 +251,36 @@ public static class ShiftEndpoints
                 return Refused(new ShiftRefusal("out-of-range", bad.Message, bad.Field));
             }
 
-            return Results.Ok(News2Calculator.Calculate(body.Vitals.ToNews2Input(body.Scale ?? SpO2Scale.Scale1, null)));
+            var scale = body.Scale ?? SpO2Scale.Scale1;
+            Scale2Authorisation? authorisation = null;
+            if (!string.IsNullOrEmpty(body.PatientId))
+            {
+                if ((await source.GetPatientsAsync(ct)).FirstOrDefault(p => p.Id == body.PatientId) is not { } patient)
+                {
+                    return UnknownPatient(body.PatientId);
+                }
+
+                // RCP 2017: Scale 2 needs a recorded decision, in force at the moment the set is taken.
+                var now = !string.IsNullOrEmpty(body.Shift) && shifts.Get(body.Shift) is { } shift ? shifts.Now(shift) : DateTimeOffset.MaxValue;
+                scale = patient.SpO2Scale;
+                authorisation = patient.Scale2Authorisation is { } decision && decision.AuthorisedAt <= now ? decision : null;
+            }
+
+            return Results.Ok(News2Calculator.Calculate(body.Vitals.ToNews2Input(scale, authorisation)));
         });
     }
 
     /// <summary>Turns a request's <c>shift</c> into the overlay and the ward-now to answer at, or into the problem.</summary>
-    public static (IVitalSignsSource? Overlay, DateTimeOffset? Now, IResult? Problem) Resolve(string? shiftId, WardShifts shifts, IVitalSignsSource source)
+    public static (IVitalSignsSource? Overlay, DateTimeOffset? Now, IResult? Problem) Resolve(string? shiftId, WardShifts shifts, IVitalSignsSource source, string? trySession = null)
     {
         if (string.IsNullOrEmpty(shiftId))
         {
             return (null, null, null);
+        }
+
+        if (!string.IsNullOrEmpty(trySession))
+        {
+            return (null, null, Results.Problem("Use either a Try session or a shift, not both.", statusCode: StatusCodes.Status400BadRequest));
         }
 
         return shifts.Get(shiftId) is { } shift

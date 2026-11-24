@@ -199,12 +199,16 @@ export function App() {
     }
   };
 
+  // Watch leaves the shift in this tab only (the other role's tab keeps it); End shift deletes it for every tab.
   const leaveShift = () => {
+    setShiftSeen(null);
+    setView((v) => ({ ...v, shift: undefined, role: undefined, at: at ?? v.at }));
+  };
+  const finishShift = () => {
     if (shiftId) {
       void endShift(shiftId).catch(() => undefined);
     }
-    setShiftSeen(null);
-    setView((v) => ({ ...v, shift: undefined, role: undefined, at: at ?? v.at }));
+    leaveShift();
   };
 
   const changeSpeed = async (speed: number) => {
@@ -347,7 +351,7 @@ export function App() {
           otherRoleHref={otherRoleHref}
           onRole={(role) => setView((v) => ({ ...v, role: role === 'doctor' ? 'doctor' : undefined }))}
           onSpeed={(s) => void changeSpeed(s)}
-          onEnd={leaveShift}
+          onEnd={finishShift}
         />
       )}
 
@@ -430,7 +434,6 @@ export function App() {
                     patientId={patient.data.patient.id}
                     bedLabel={bedLabel(patient.data.patient.bed, patient.data.patient.id)}
                     name={patient.data.patient.name}
-                    scale={patient.data.patient.spO2Scale}
                     state={patient.data.escalation}
                     onChanged={bump}
                   />

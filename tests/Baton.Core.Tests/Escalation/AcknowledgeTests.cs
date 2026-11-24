@@ -76,6 +76,24 @@ public class AcknowledgeTests
         Assert.Null(state.OpenCall);
     }
 
+    // Review I2: once a later (more senior) call is answered, an earlier unanswered call no longer waits.
+    [Fact]
+    public void EarlierUnansweredCall_IsNotOpen_OnceALaterCallIsAnswered()
+    {
+        EscalationRecord[] records =
+        [
+            new Called(T(2, 5), Nurse, "c1", EscalationTier.OnCallDoctor),
+            new Called(T(3, 30), Nurse, "c2", EscalationTier.SeniorDoctor),
+            new Arrived(T(3, 40), "Practitioner/synthetic-senior", "c2", Simulated: false),
+        ];
+
+        var state = EscalationChain.At(records, Scores, T(4, 0));
+
+        Assert.Null(state.OpenCall);
+        Assert.False(state.TargetPassed);
+        Assert.Null(state.MinutesWaited);
+    }
+
     [Fact]
     public void ObservationNotDone_DoesNotChangeTheChain()
     {

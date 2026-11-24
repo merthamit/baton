@@ -19,7 +19,7 @@ export function ChainStrip({ state }: { state: EscalationState }) {
 
   const latest = state.calls.at(-1);
   // The acknowledge step exists only for calls answered in a shift; scenario calls keep their four steps.
-  const shown = latest?.acknowledgedAt || state.step === 'Acknowledged' ? steps : steps.filter((s) => s !== 'Acknowledged');
+  const shown = latest?.acknowledgedAt || latest?.callId.startsWith('shift-') ? steps : steps.filter((s) => s !== 'Acknowledged');
   const reached = shown.indexOf(state.step as (typeof steps)[number]);
   const label = { Called: t.stepCalled, Acknowledged: t.stepAcknowledged, Arrived: t.stepArrived, Assessed: t.stepAssessed, Planned: t.stepPlanned };
   const open = state.openCall;

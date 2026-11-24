@@ -196,6 +196,7 @@ export const tr: Messages = {
   shiftClock: (time: string) => `Servis saati ${time}`,
   shiftSpeed: 'Saat hızı',
   shiftEnd: 'Vardiyayı bitir',
+  shiftEndConfirm: 'Vardiya bitirilsin mi? Hemşire ve hekim sekmelerinin ikisi de kapanır.',
   shiftRoleLabel: 'Rol',
   roleTabNurse: 'Hemşire',
   roleTabDoctor: 'Hekim',
@@ -264,4 +265,6 @@ export const tr: Messages = {
   shiftRefusalNoOpenCall: 'Bu hasta için açık çağrı yok.',
   shiftRefusalAlreadyAcknowledged: 'Bu çağrı zaten onaylandı.',
   shiftRefusalNoArrival: 'Çağrılan hekim henüz gelmedi.',
+  shiftRefusalAlreadyAssessed: 'Bu çağrının değerlendirmesi zaten kaydedildi.',
+  shiftRefusalAlreadyPlanned: 'Bu çağrının planı zaten kaydedildi.',
 };

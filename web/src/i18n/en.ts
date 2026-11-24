@@ -196,6 +196,7 @@ export const en = {
   shiftClock: (time: string) => `Ward time ${time}`,
   shiftSpeed: 'Clock speed',
   shiftEnd: 'End shift',
+  shiftEndConfirm: 'End this shift? The nurse and doctor tabs both lose it.',
   shiftRoleLabel: 'Role',
   roleTabNurse: 'Nurse',
   roleTabDoctor: 'Doctor',
@@ -264,6 +265,8 @@ export const en = {
   shiftRefusalNoOpenCall: 'There is no open call for this patient.',
   shiftRefusalAlreadyAcknowledged: 'This call is already acknowledged.',
   shiftRefusalNoArrival: 'The called clinician has not arrived yet.',
+  shiftRefusalAlreadyAssessed: 'This call already has an assessment.',
+  shiftRefusalAlreadyPlanned: 'This call already has a plan.',
 };
 
 export type Messages = typeof en;

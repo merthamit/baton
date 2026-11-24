@@ -63,7 +63,8 @@ export function BedCard({ bed, selected, onSelect }: BedCardProps) {
   const label = bed.bed ? t.bed(bed.bed) : bed.patientId;
   const title = `${label} · ${bed.name}${bed.age !== null ? `, ${t.age(bed.age)}` : ''}`;
 
-  const overdue = bed.overdueMinutes !== null && bed.overdueMinutes > 0;
+  // A set not taken with a reason shows the reason instead of a plain overdue (shift mode).
+  const overdue = !bed.notDone && bed.overdueMinutes !== null && bed.overdueMinutes > 0;
 
   return (
     <button

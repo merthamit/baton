@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import type { ShiftState } from '../api/types';
 import { useT } from '../i18n/LanguageProvider';
 
@@ -33,6 +34,7 @@ interface ShiftBarProps {
 export function ShiftBar({ state, fetchedAt, role, otherRoleHref, onRole, onSpeed, onEnd }: ShiftBarProps) {
   const { t } = useT();
   const [, tick] = useState(0);
+  const [ending, setEnding] = useState(false);
   useEffect(() => {
     const timer = setInterval(() => tick((n) => n + 1), 1000);
     return () => clearInterval(timer);
@@ -67,9 +69,19 @@ export function ShiftBar({ state, fetchedAt, role, otherRoleHref, onRole, onSpee
       <a className="btn" href={otherRoleHref} target="_blank" rel="noopener">
         {role === 'nurse' ? t.shiftOpenDoctor : t.shiftOpenNurse}
       </a>
-      <button type="button" className="btn" onClick={onEnd}>
+      <button type="button" className="btn" onClick={() => setEnding(true)}>
         {t.shiftEnd}
       </button>
+      {ending && (
+        <ConfirmDialog
+          title={t.shiftEndConfirm}
+          onConfirm={() => {
+            setEnding(false);
+            onEnd();
+          }}
+          onCancel={() => setEnding(false)}
+        />
+      )}
       <p className="shift-note muted">{t.shiftNote}</p>
     </section>
   );

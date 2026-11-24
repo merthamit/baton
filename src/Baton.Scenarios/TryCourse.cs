@@ -147,13 +147,15 @@ public static class TryCourse
             return (truth, card.Scale);
         }
 
-        // Same rule as the simulator: keep a noisy reading only when it scores like the truth.
+        // Same rule as the simulator: keep a noisy reading only when it scores like the truth (Scale 2 with its decision).
+        var decision = card.Events.FirstOrDefault(e => e.Kind == ScenarioEventKind.Scale2Decision);
+        var authorisation = decision is null ? null : new Core.News2.Scale2Authorisation(decision.Text, ShiftSimulator.AtMinute(shiftStart, decision.Hour));
         var random = new Random(HashCode.Combine(Ward.SeedFor(seed, bedIndex), (int)Math.Round(hour * 60)));
-        var score = Core.News2.News2Calculator.Calculate(truth.ToNews2Input(card.Scale, null));
+        var score = Core.News2.News2Calculator.Calculate(truth.ToNews2Input(card.Scale, authorisation));
         for (var attempt = 0; attempt < 10; attempt++)
         {
             var noisy = MeasurementNoise.Apply(truth, random, noiseLevel);
-            var noisyScore = Core.News2.News2Calculator.Calculate(noisy.ToNews2Input(card.Scale, null));
+            var noisyScore = Core.News2.News2Calculator.Calculate(noisy.ToNews2Input(card.Scale, authorisation));
             if (noisyScore.Total == score.Total && noisyScore.Risk == score.Risk)
             {
                 return (noisy, card.Scale);

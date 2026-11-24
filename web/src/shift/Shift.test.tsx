@@ -2,11 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderIn } from '../test/render';
-import { noChain, point } from '../fixtures';
+import { bed, noChain, point } from '../fixtures';
 import type { DoctorCall, News2Preview, ShiftState } from '../api/types';
 import { ObservationForm } from './ObservationForm';
 import { DoctorView } from './DoctorView';
-import { wardNow } from './ShiftBar';
+import { ShiftBar, wardNow } from './ShiftBar';
+import { BedCard } from '../board/BedCard';
+import { ChainStrip } from '../board/ChainStrip';
 import { readUrlState, writeUrlState } from '../url';
 
 function respond(status: number, body: unknown): Response {
@@ -55,10 +57,10 @@ describe('bedside entry form', () => {
       },
     });
     const onSaved = vi.fn();
-    renderIn(<ObservationForm shiftId={shiftId} patientId="synthetic-02" bedLabel="Bed 02" name="Ayşe K." scale="Scale1" onSaved={onSaved} onClose={() => {}} />);
+    renderIn(<ObservationForm shiftId={shiftId} patientId="synthetic-02" bedLabel="Bed 02" name="Ayşe K." onSaved={onSaved} onClose={() => {}} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Measure now' }));
-    expect(screen.getByLabelText('Respiration rate (/min)')).toHaveValue(24);
+    expect(screen.getByLabelText('Respiration rate (/min)')).toHaveValue("24");
     expect(await screen.findByText('Emergency assessment within 30 minutes by the critical care team; continuous monitoring.')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -77,7 +79,7 @@ describe('bedside entry form', () => {
       [`/api/shift/${shiftId}/observations`]: () =>
         respond(400, { title: 'Entry not allowed', type: 'urn:baton:shift:out-of-range', detail: 'spO2 must be from 50 to 100.', field: 'spO2' }),
     });
-    renderIn(<ObservationForm shiftId={shiftId} patientId="synthetic-02" bedLabel="Yatak 02" name="Ayşe K." scale="Scale1" onSaved={() => {}} onClose={() => {}} />, 'tr');
+    renderIn(<ObservationForm shiftId={shiftId} patientId="synthetic-02" bedLabel="Yatak 02" name="Ayşe K." onSaved={() => {}} onClose={() => {}} />, 'tr');
 
     for (const [label, value] of [
       ['Solunum sayısı (/dk)', '24'],
@@ -95,7 +97,7 @@ describe('bedside entry form', () => {
 
   it('keeps Save off until every field is a number', () => {
     route({});
-    renderIn(<ObservationForm shiftId={shiftId} patientId="synthetic-02" bedLabel="Bed 02" name="Ayşe K." scale="Scale1" onSaved={() => {}} onClose={() => {}} />);
+    renderIn(<ObservationForm shiftId={shiftId} patientId="synthetic-02" bedLabel="Bed 02" name="Ayşe K." onSaved={() => {}} onClose={() => {}} />);
 
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     expect(screen.getByText('Fill in every field to see the score.')).toBeInTheDocument();
@@ -185,5 +187,65 @@ describe('shift clock and link', () => {
   it('ignores a role without a shift and a malformed shift id', () => {
     expect(readUrlState('?role=doctor')).toEqual({});
     expect(readUrlState('?shift=../x&role=doctor')).toEqual({});
+  });
+});
+
+describe('review fixes', () => {
+  it('previews with the patient and the shift, and reads a decimal comma', async () => {
+    const bodies: string[] = [];
+    route({
+      '/api/news2': (_, init) => {
+        bodies.push(String(init?.body));
+        return respond(200, preview);
+      },
+    });
+    renderIn(<ObservationForm shiftId={shiftId} patientId="synthetic-04" bedLabel="Bed 04" name="Ali V." onSaved={() => {}} onClose={() => {}} />);
+
+    for (const [label, value] of [
+      ['Respiration rate (/min)', '20'],
+      ['SpO₂ (%)', '89'],
+      ['Systolic BP (mmHg)', '120'],
+      ['Pulse (/min)', '90'],
+      ['Temperature (°C)', '37,5'],
+    ] as const) {
+      await userEvent.type(screen.getByLabelText(label), value);
+    }
+
+    await waitFor(() => expect(bodies.length).toBeGreaterThan(0));
+    expect(JSON.parse(bodies.at(-1)!)).toMatchObject({ patientId: 'synthetic-04', shift: shiftId, vitals: { temperatureCelsius: 37.5 } });
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  });
+
+  it('shows a not-done reason instead of a plain overdue', () => {
+    renderIn(
+      <BedCard
+        bed={bed({ overdueMinutes: 25, notDone: { at: '2026-11-23T22:10:00+03:00', reason: 'CouldNotBeObtained', note: null, urgent: true } })}
+        selected={false}
+        onSelect={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('Not done 22:10: No reading could be obtained — escalate now')).toBeInTheDocument();
+    expect(screen.queryByText('Overdue 25 min')).not.toBeInTheDocument();
+  });
+
+  it('shows the acknowledge step as pending on a shift call', () => {
+    const call = { ...doctorCall().call, callId: 'shift-abc-synthetic-02-1' };
+    renderIn(<ChainStrip state={{ ...noChain, step: 'Called', calls: [call], openCall: call, minutesWaited: 3 }} />);
+
+    const step = screen.getByText('Acknowledged').closest('li')!;
+    expect(step).toHaveAttribute('data-state', 'todo');
+    expect(step).toHaveTextContent('(not yet)');
+  });
+
+  it('asks before ending the shift for every tab', async () => {
+    const onEnd = vi.fn();
+    const state: ShiftState = { shiftId, startedAt: '2026-11-23T22:00:00+03:00', now: '2026-11-23T22:00:00+03:00', speed: 10, shiftEnd: '2026-11-24T08:00:00+03:00' };
+    renderIn(<ShiftBar state={state} fetchedAt={Date.now()} role="nurse" otherRoleHref="/" onRole={() => {}} onSpeed={() => {}} onEnd={onEnd} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'End shift' }));
+    expect(onEnd).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(onEnd).toHaveBeenCalled();
   });
 });
