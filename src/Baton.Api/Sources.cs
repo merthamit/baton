@@ -17,8 +17,13 @@ public sealed record PatientRef(
     SpO2Scale SpO2Scale,
     Scale2Authorisation? Scale2Authorisation,
     DateOnly? BirthDate = null,
-    string? Diagnosis = null)
+    string? Diagnosis = null,
+    IReadOnlyDictionary<string, string>? DiagnosisTranslations = null)
 {
+    /// <summary>The diagnosis in <paramref name="language"/> when a translation exists, otherwise as recorded.</summary>
+    public string? DiagnosisIn(string? language) =>
+        language is not null && DiagnosisTranslations?.TryGetValue(language, out var text) == true ? text : Diagnosis;
+
     /// <summary>
     /// Reads Baton's bed identifier, Scale 2 decision extension and birth date from a FHIR Patient, and the
     /// diagnosis text from its Condition when one is given.
@@ -50,7 +55,8 @@ public sealed record PatientRef(
             decision is null ? SpO2Scale.Scale1 : SpO2Scale.Scale2,
             decision,
             birthDate,
-            diagnosis?.Code?.Text);
+            diagnosis?.Code?.Text,
+            FhirTranslation.All(diagnosis?.Code?.TextElement));
     }
 }
 
@@ -77,8 +83,11 @@ public interface IVitalSignsSource
     /// <summary>The patient's events at or before <paramref name="until"/>, oldest first.</summary>
     Task<PatientEvents> GetEventsAsync(string patientId, DateTimeOffset until, CancellationToken cancellationToken);
 
-    /// <summary>The patient's escalation records at or before <paramref name="until"/>, read from FHIR resources.</summary>
-    Task<IReadOnlyList<EscalationRecord>> GetEscalationAsync(string patientId, DateTimeOffset until, CancellationToken cancellationToken);
+    /// <summary>
+    /// The patient's escalation records at or before <paramref name="until"/>, read from FHIR resources; texts in
+    /// <paramref name="language"/> when a translation exists.
+    /// </summary>
+    Task<IReadOnlyList<EscalationRecord>> GetEscalationAsync(string patientId, DateTimeOffset until, string? language, CancellationToken cancellationToken);
 }
 
 /// <summary>The synthetic ward generated in memory (no FHIR server needed). Built the same way it is loaded into HAPI.</summary>
@@ -87,7 +96,7 @@ public sealed class InMemoryVitalSignsSource : IVitalSignsSource
     private readonly IReadOnlyList<PatientRef> patients;
     private readonly Dictionary<string, List<Observation>> observations;
     private readonly Dictionary<string, List<WardEvent>> events;
-    private readonly Dictionary<string, IReadOnlyList<EscalationRecord>> escalation;
+    private readonly Dictionary<string, IReadOnlyList<Resource>> chainResources;
 
     public InMemoryVitalSignsSource(DateTimeOffset shiftStart, int seed, double treatmentDelayHours = 0, int beds = Ward.DefaultBeds)
     {
@@ -96,9 +105,9 @@ public sealed class InMemoryVitalSignsSource : IVitalSignsSource
         patients = bundles.Select(b => PatientRef.FromFhir(
             b.Entry.Select(e => e.Resource).OfType<Patient>().Single(),
             b.Entry.Select(e => e.Resource).OfType<Condition>().SingleOrDefault())).ToList();
-        escalation = bundles.ToDictionary(
+        chainResources = bundles.ToDictionary(
             b => b.Entry.Select(e => e.Resource).OfType<Patient>().Single().Id!,
-            b => EscalationFhir.FromResources(b.Entry.Select(e => e.Resource).OfType<Resource>()));
+            b => (IReadOnlyList<Resource>)b.Entry.Select(e => e.Resource).OfType<Resource>().Where(r => r is Flag or Communication or Hl7.Fhir.Model.Task).ToList());
         events = ward.ToDictionary(
             b => b.PatientId,
             b => b.Patient.Events
@@ -126,9 +135,11 @@ public sealed class InMemoryVitalSignsSource : IVitalSignsSource
         return Task.FromResult(new PatientEvents(true, result));
     }
 
-    public Task<IReadOnlyList<EscalationRecord>> GetEscalationAsync(string patientId, DateTimeOffset until, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<EscalationRecord>> GetEscalationAsync(string patientId, DateTimeOffset until, string? language, CancellationToken cancellationToken)
     {
-        IReadOnlyList<EscalationRecord> result = escalation.TryGetValue(patientId, out var list) ? list.Where(r => r.At <= until).ToList() : [];
+        IReadOnlyList<EscalationRecord> result = chainResources.TryGetValue(patientId, out var resources)
+            ? EscalationFhir.FromResources(resources, language).Where(r => r.At <= until).ToList()
+            : [];
         return Task.FromResult(result);
     }
 }
@@ -158,13 +169,13 @@ public sealed class HapiVitalSignsSource(FhirClient client) : IVitalSignsSource
         Task.FromResult(PatientEvents.Unavailable);
 
     /// <summary>The chain from the server: Flags and Tasks by patient, Communications by subject.</summary>
-    public async Task<IReadOnlyList<EscalationRecord>> GetEscalationAsync(string patientId, DateTimeOffset until, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<EscalationRecord>> GetEscalationAsync(string patientId, DateTimeOffset until, string? language, CancellationToken cancellationToken)
     {
         var resources = new List<Resource>();
         resources.AddRange(await All<Flag>(await client.SearchAsync<Flag>(new SearchParams().Where($"patient=Patient/{patientId}").LimitTo(200), cancellationToken), cancellationToken));
         resources.AddRange(await All<Hl7.Fhir.Model.Task>(await client.SearchAsync<Hl7.Fhir.Model.Task>(new SearchParams().Where($"patient=Patient/{patientId}").LimitTo(200), cancellationToken), cancellationToken));
         resources.AddRange(await All<Communication>(await client.SearchAsync<Communication>(new SearchParams().Where($"subject=Patient/{patientId}").LimitTo(200), cancellationToken), cancellationToken));
-        return EscalationFhir.FromResources(resources).Where(r => r.At <= until).ToList();
+        return EscalationFhir.FromResources(resources, language).Where(r => r.At <= until).ToList();
     }
 
     public async Task<IReadOnlyList<Observation>> GetObservationsAsync(string patientId, DateTimeOffset until, CancellationToken cancellationToken)

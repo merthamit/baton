@@ -103,4 +103,13 @@ public class WardFhirBundleTests
             ["news2-synthetic-02-202611232315", "synthetic-02-0915-rr", "synthetic-02-0915-hr"],
             WardFhirLoader.ObservationDeletionOrder(["synthetic-02-0915-rr", "news2-synthetic-02-202611232315", "synthetic-02-0915-hr"]));
     }
+
+    [Fact]
+    public void Bundle_CarriesTurkishTranslations()
+    {
+        var resources = WardFhirBundle.Build(Bed).Entry.Select(e => e.Resource).ToList();
+
+        Assert.Equal("Toplum kökenli pnömoni", Baton.Fhir.FhirTranslation.Get(resources.OfType<Condition>().Single().Code!.TextElement, "tr"));
+        Assert.Equal("Huzursuz, yemek yemiyor, kendinde değil", Baton.Fhir.FhirTranslation.Get(resources.OfType<Flag>().Single().Code!.TextElement, "tr"));
+    }
 }

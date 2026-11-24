@@ -36,7 +36,8 @@ public static class EscalationFhir
         string patientId,
         Func<DateTimeOffset, ResourceReference?> news2At,
         IReadOnlyList<ScoreMark> scores,
-        EscalationOptions? options = null)
+        EscalationOptions? options = null,
+        Func<string, string?>? turkish = null)
     {
         ArgumentNullException.ThrowIfNull(records);
         ArgumentException.ThrowIfNullOrEmpty(patientId);
@@ -61,6 +62,7 @@ public static class EscalationFhir
                 Period = new Period { Start = Time(concern.At) },
                 Author = new ResourceReference(concern.By),
             };
+            Translate(flag.Code.TextElement, concern.Note, turkish);
             resources.Add(flag);
             provenance.Add(Provenance(flag, concern.At, concern.By));
         }
@@ -78,6 +80,7 @@ public static class EscalationFhir
                 Sender = new ResourceReference(voice.By),
                 Payload = [new Communication.PayloadComponent { Content = new FhirString(voice.Text) }],
             };
+            Translate(communication.Payload[0].Content, voice.Text, turkish);
             resources.Add(communication);
             provenance.Add(Provenance(communication, voice.At, voice.By));
         }
@@ -88,7 +91,7 @@ public static class EscalationFhir
         foreach (var called in ordered.OfType<Called>())
         {
             var call = state.Calls.Single(c => c.CallId == called.CallId);
-            var task = CallTask(called, call, ordered, subject, news2At(called.At), previous);
+            var task = CallTask(called, call, ordered, subject, news2At(called.At), previous, turkish);
             resources.Add(task);
             provenance.Add(Provenance(task, ordered.Where(r => CallIdOf(r) == called.CallId).Max(r => r.At), called.By));
             previous = called.CallId;
@@ -98,7 +101,11 @@ public static class EscalationFhir
         return resources;
     }
 
-    public static IReadOnlyList<EscalationRecord> FromResources(IEnumerable<Resource> resources)
+    /// <summary>
+    /// Records from resources. With <paramref name="language"/> (for example "tr") texts come from their translation when
+    /// one exists, otherwise from the original.
+    /// </summary>
+    public static IReadOnlyList<EscalationRecord> FromResources(IEnumerable<Resource> resources, string? language = null)
     {
         ArgumentNullException.ThrowIfNull(resources);
         var records = new List<EscalationRecord>();
@@ -108,15 +115,16 @@ public static class EscalationFhir
             switch (resource)
             {
                 case Flag flag when Has(flag.Code, "nurse-concern") && Parse(flag.Period?.Start) is { } at:
-                    records.Add(new ConcernRaised(at, flag.Author?.Reference ?? "", flag.Code!.Text ?? ""));
+                    records.Add(new ConcernRaised(at, flag.Author?.Reference ?? "", FhirTranslation.Get(flag.Code!.TextElement, language) ?? flag.Code.Text ?? ""));
                     break;
 
                 case Communication c when c.Category.Any(cat => Has(cat, "patient-or-family-concern")) && Parse(c.Sent) is { } sent:
-                    records.Add(new PatientOrFamilyConcern(sent, c.Sender?.Reference ?? "", (c.Payload.FirstOrDefault()?.Content as FhirString)?.Value ?? ""));
+                    var content = c.Payload.FirstOrDefault()?.Content as FhirString;
+                    records.Add(new PatientOrFamilyConcern(sent, c.Sender?.Reference ?? "", FhirTranslation.Get(content, language) ?? content?.Value ?? ""));
                     break;
 
                 case FhirTask task when Has(task.Code, "clinical-review"):
-                    records.AddRange(FromTask(task));
+                    records.AddRange(FromTask(task, language));
                     break;
             }
         }
@@ -124,7 +132,7 @@ public static class EscalationFhir
         return records;
     }
 
-    private static FhirTask CallTask(Called called, CallState call, List<EscalationRecord> ordered, ResourceReference subject, ResourceReference? focus, string? previous)
+    private static FhirTask CallTask(Called called, CallState call, List<EscalationRecord> ordered, ResourceReference subject, ResourceReference? focus, string? previous, Func<string, string?>? turkish)
     {
         var steps = ordered.Where(r => CallIdOf(r) == called.CallId).ToList();
         var arrived = steps.OfType<Arrived>().FirstOrDefault();
@@ -173,18 +181,37 @@ public static class EscalationFhir
 
         if (assessed is not null)
         {
-            task.Note.Add(new Annotation { Text = AssessmentPrefix + assessed.Text, Time = Time(assessed.At), Author = new ResourceReference(assessed.By) });
+            task.Note.Add(Note(AssessmentPrefix, assessed.Text, assessed.At, assessed.By, turkish));
         }
 
         if (planned is not null)
         {
-            task.Note.Add(new Annotation { Text = PlanPrefix + planned.Text, Time = Time(planned.At), Author = new ResourceReference(planned.By) });
+            task.Note.Add(Note(PlanPrefix, planned.Text, planned.At, planned.By, turkish));
         }
 
         return task;
     }
 
-    private static IEnumerable<EscalationRecord> FromTask(FhirTask task)
+    private static Annotation Note(string prefix, string text, DateTimeOffset at, string by, Func<string, string?>? turkish)
+    {
+        var note = new Annotation { Text = prefix + text, Time = Time(at), Author = new ResourceReference(by) };
+        if (turkish?.Invoke(text) is { } tr)
+        {
+            FhirTranslation.Add(note.TextElement, "tr", prefix + tr);
+        }
+
+        return note;
+    }
+
+    private static void Translate(Element? element, string text, Func<string, string?>? turkish)
+    {
+        if (element is not null && turkish?.Invoke(text) is { } tr)
+        {
+            FhirTranslation.Add(element, "tr", tr);
+        }
+    }
+
+    private static IEnumerable<EscalationRecord> FromTask(FhirTask task, string? language)
     {
         if (Parse(task.AuthoredOn) is not { } calledAt
             || !Enum.TryParse<EscalationTier>(task.PerformerType.FirstOrDefault()?.Coding.FirstOrDefault(c => c.System == TierSystem)?.Code, out var tier))
@@ -203,7 +230,7 @@ public static class EscalationFhir
 
         foreach (var note in task.Note)
         {
-            var text = note.Text ?? "";
+            var text = FhirTranslation.Get(note.TextElement, language) ?? note.Text ?? "";
             var by = (note.Author as ResourceReference)?.Reference ?? "";
             if (Parse(note.Time) is not { } at)
             {

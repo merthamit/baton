@@ -21,8 +21,8 @@ public class IncompleteScoreTests
         public System.Threading.Tasks.Task<PatientEvents> GetEventsAsync(string patientId, DateTimeOffset until, CancellationToken cancellationToken) =>
             inner.GetEventsAsync(patientId, until, cancellationToken);
 
-        public System.Threading.Tasks.Task<IReadOnlyList<Baton.Core.Escalation.EscalationRecord>> GetEscalationAsync(string patientId, DateTimeOffset until, CancellationToken cancellationToken) =>
-            inner.GetEscalationAsync(patientId, until, cancellationToken);
+        public System.Threading.Tasks.Task<IReadOnlyList<Baton.Core.Escalation.EscalationRecord>> GetEscalationAsync(string patientId, DateTimeOffset until, string? language, CancellationToken cancellationToken) =>
+            inner.GetEscalationAsync(patientId, until, language, cancellationToken);
     }
 
     [Fact]

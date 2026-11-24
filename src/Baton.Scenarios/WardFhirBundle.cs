@@ -65,7 +65,7 @@ public static class WardFhirBundle
         }
 
         var scores = bed.Patient.Measurements.Select(m => new ScoreMark(m.At, m.Score.Risk)).ToList();
-        var chain = EscalationFhir.ToResources(records, bed.PatientId, News2At, scores);
+        var chain = EscalationFhir.ToResources(records, bed.PatientId, News2At, scores, turkish: ScenarioTranslations.ToTurkish);
         return [.. news2.Values, .. chain];
     }
 
@@ -113,6 +113,10 @@ public static class WardFhirBundle
             Code = new CodeableConcept { Text = bed.Diagnosis },
             Subject = new ResourceReference($"Patient/{bed.PatientId}"),
         };
+        if (ScenarioTranslations.ToTurkish(bed.Diagnosis) is { } diagnosisTr)
+        {
+            FhirTranslation.Add(condition.Code.TextElement!, "tr", diagnosisTr);
+        }
 
         var resources = new List<Resource> { patient, condition };
         resources.AddRange(bed.Patient.Measurements.SelectMany(m => ScenarioFhirExport.ToObservations(bed, m)));

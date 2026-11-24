@@ -42,13 +42,13 @@ public class HapiIntegrationTests
         var generated = new InMemoryVitalSignsSource(ShiftStart, 42);
         foreach (var bed in await memory.GetWardAsync(end, CancellationToken.None))
         {
-            var expected = await generated.GetEscalationAsync(bed.PatientId, end, CancellationToken.None);
-            var actual = await source.GetEscalationAsync(bed.PatientId, end, CancellationToken.None);
+            var expected = await generated.GetEscalationAsync(bed.PatientId, end, null, CancellationToken.None);
+            var actual = await source.GetEscalationAsync(bed.PatientId, end, null, CancellationToken.None);
             Assert.Equal(
                 expected.OrderBy(r => r.At).ThenBy(r => r.GetType().Name),
                 actual.OrderBy(r => r.At).ThenBy(r => r.GetType().Name));
         }
 
-        Assert.Contains(await source.GetEscalationAsync("synthetic-02", end, CancellationToken.None), r => r is Baton.Core.Escalation.Called);
+        Assert.Contains(await source.GetEscalationAsync("synthetic-02", end, null, CancellationToken.None), r => r is Baton.Core.Escalation.Called);
     }
 }

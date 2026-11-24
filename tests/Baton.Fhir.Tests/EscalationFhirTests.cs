@@ -131,4 +131,49 @@ public class EscalationFhirTests
         var folder = Directory.CreateDirectory(Path.Combine(root.FullName, "artifacts", "fhir-examples"));
         File.WriteAllText(Path.Combine(folder.FullName, $"{name}.json"), resource.ToJson(pretty: true));
     }
+
+    private static string? Turkish(string english) => english switch
+    {
+        "Restless, not eating, not herself" => "Huzursuz, yemek yemiyor, kendinde değil",
+        "On-call doctor: suspected sepsis" => "Nöbetçi hekim: sepsis şüphesi",
+        _ => null,
+    };
+
+    [Fact]
+    public void Translations_AreWrittenWithTheStandardExtension()
+    {
+        var flag = EscalationFhir.ToResources(Story, PatientId, News2At, Scores, turkish: Turkish).OfType<Flag>().Single();
+
+        Assert.Equal("Restless, not eating, not herself", flag.Code!.Text);
+        Assert.Equal("Huzursuz, yemek yemiyor, kendinde değil", FhirTranslation.Get(flag.Code.TextElement, "tr"));
+        var extension = Assert.Single(flag.Code.TextElement!.Extension);
+        Assert.Equal("http://hl7.org/fhir/StructureDefinition/translation", extension.Url);
+    }
+
+    [Fact]
+    public void FromResources_InTurkish_UsesTranslations_AndFallsBackToTheOriginal()
+    {
+        var resources = EscalationFhir.ToResources(Story, PatientId, News2At, Scores, turkish: Turkish);
+
+        var turkish = EscalationFhir.FromResources(resources, "tr");
+        var english = EscalationFhir.FromResources(resources);
+
+        Assert.Equal("Huzursuz, yemek yemiyor, kendinde değil", turkish.OfType<ConcernRaised>().Single().Note);
+        Assert.Equal("Nöbetçi hekim: sepsis şüphesi", turkish.OfType<Assessed>().Single().Text);
+        Assert.Equal("Cultures, fluids, antibiotics", turkish.OfType<Planned>().Single().Text); // no translation → original
+        Assert.Equal("Restless, not eating, not herself", english.OfType<ConcernRaised>().Single().Note);
+    }
+
+    [Fact]
+    public void TranslatedResources_PassFirelyValidator()
+    {
+        foreach (var resource in EscalationFhir.ToResources(Story, PatientId, News2At, Scores, turkish: Turkish).Where(r => r is Flag or Hl7.Fhir.Model.Task))
+        {
+            var errors = FhirValidation.Validator.Validate(resource).Issue
+                .Where(i => i.Severity is OperationOutcome.IssueSeverity.Error or OperationOutcome.IssueSeverity.Fatal)
+                .Select(i => $"{resource.TypeName}/{resource.Id} {i.Details?.Text ?? i.Diagnostics} @ {string.Join(",", i.Expression)}")
+                .ToList();
+            Assert.True(errors.Count == 0, string.Join(Environment.NewLine, errors));
+        }
+    }
 }

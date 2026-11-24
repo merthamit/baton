@@ -77,14 +77,14 @@ public sealed class WardService(IVitalSignsSource source, EscalationOptions? esc
 
     public static readonly TimeSpan MaxReadingAge = TimeSpan.FromHours(13);
 
-    public async Task<IReadOnlyList<BedSummary>> GetWardAsync(DateTimeOffset at, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<BedSummary>> GetWardAsync(DateTimeOffset at, CancellationToken cancellationToken, string? language = null)
     {
         var result = new List<BedSummary>();
         foreach (var patient in await source.GetPatientsAsync(cancellationToken))
         {
             var points = await ScoreAsync(patient, at, cancellationToken);
             var events = await source.GetEventsAsync(patient.Id, at, cancellationToken);
-            var records = await source.GetEscalationAsync(patient.Id, at, cancellationToken);
+            var records = await source.GetEscalationAsync(patient.Id, at, language, cancellationToken);
             var latest = points.Count > 0 ? points[^1] : null;
 
             DateTimeOffset? nextDue = latest is null
@@ -100,7 +100,7 @@ public sealed class WardService(IVitalSignsSource source, EscalationOptions? esc
                 patient.Name,
                 patient.Bed,
                 AgeAt(patient.BirthDate, at),
-                patient.Diagnosis,
+                patient.DiagnosisIn(language),
                 latest,
                 points.Count > 1 ? points[^2] : null,
                 latest is null ? [] : DriversOf(latest.SubScores),
@@ -109,7 +109,7 @@ public sealed class WardService(IVitalSignsSource source, EscalationOptions? esc
                 true,
                 Chain(records, points, at),
                 events.Available,
-                NonChain(events.Events)));
+                NonChain(events.Events, language)));
         }
 
         return result;
@@ -140,7 +140,7 @@ public sealed class WardService(IVitalSignsSource source, EscalationOptions? esc
         return born.AddYears(age) > today ? age - 1 : age;
     }
 
-    public async Task<PatientSeries?> GetPatientAsync(string patientId, DateTimeOffset at, CancellationToken cancellationToken)
+    public async Task<PatientSeries?> GetPatientAsync(string patientId, DateTimeOffset at, CancellationToken cancellationToken, string? language = null)
     {
         var patient = (await source.GetPatientsAsync(cancellationToken)).FirstOrDefault(p => p.Id == patientId);
         if (patient is null)
@@ -149,15 +149,15 @@ public sealed class WardService(IVitalSignsSource source, EscalationOptions? esc
         }
 
         var events = await source.GetEventsAsync(patient.Id, at, cancellationToken);
-        var records = await source.GetEscalationAsync(patient.Id, at, cancellationToken);
+        var records = await source.GetEscalationAsync(patient.Id, at, language, cancellationToken);
         var points = await ScoreAsync(patient, at, cancellationToken);
         return new PatientSeries(
             patient,
             AgeAt(patient.BirthDate, at),
-            patient.Diagnosis,
+            patient.DiagnosisIn(language),
             points,
             events.Available,
-            NonChain(events.Events),
+            NonChain(events.Events, language),
             Chain(records, points, at),
             records.OrderBy(r => r.At).Select(EscalationRecordView.From).ToList());
     }
@@ -172,8 +172,12 @@ public sealed class WardService(IVitalSignsSource source, EscalationOptions? esc
         ScenarioEventKind.CriticalCareCalled,
     ];
 
-    private static IReadOnlyList<WardEvent> NonChain(IReadOnlyList<WardEvent> events) =>
-        events.Where(e => !ChainKinds.Contains(e.Kind)).ToList();
+    /// <summary>Non-chain events; generator texts in Turkish when asked (they are not in FHIR yet).</summary>
+    private static IReadOnlyList<WardEvent> NonChain(IReadOnlyList<WardEvent> events, string? language) =>
+        events
+            .Where(e => !ChainKinds.Contains(e.Kind))
+            .Select(e => language == "tr" && ScenarioTranslations.ToTurkish(e.Text) is { } tr ? e with { Text = tr } : e)
+            .ToList();
 
     private EscalationState Chain(IReadOnlyList<EscalationRecord> records, IReadOnlyList<ScorePoint> points, DateTimeOffset at)
     {

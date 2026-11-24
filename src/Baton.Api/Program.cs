@@ -61,7 +61,7 @@ app.MapGet("/health", () => Results.Ok(new
     note = "Synthetic data. Not a medical device.",
 }));
 
-app.MapGet("/api/ward", async (string? at, WardService ward, CancellationToken ct) =>
+app.MapGet("/api/ward", async (string? at, string? lang, WardService ward, CancellationToken ct) =>
 {
     if (!TimeQuery.TryParse(at, settings.DefaultAt, out var moment, out var error))
     {
@@ -71,10 +71,10 @@ app.MapGet("/api/ward", async (string? at, WardService ward, CancellationToken c
     moment = moment.ToOffset(settings.ShiftStart.Offset); // answer in ward time, whatever offset was sent
 
     return await FhirServerProblem.Guard(async () =>
-        Results.Ok(new WardResponse(moment, settings.SourceName, settings.ShiftStart, settings.ShiftStart.AddHours(24), await ward.GetWardAsync(moment, ct))));
+        Results.Ok(new WardResponse(moment, settings.SourceName, settings.ShiftStart, settings.ShiftStart.AddHours(24), await ward.GetWardAsync(moment, ct, Language.From(lang)))));
 });
 
-app.MapGet("/api/patients/{id}", async (string id, string? at, WardService ward, CancellationToken ct) =>
+app.MapGet("/api/patients/{id}", async (string id, string? at, string? lang, WardService ward, CancellationToken ct) =>
 {
     if (!TimeQuery.TryParse(at, settings.DefaultAt, out var moment, out var error))
     {
@@ -84,13 +84,19 @@ app.MapGet("/api/patients/{id}", async (string id, string? at, WardService ward,
     moment = moment.ToOffset(settings.ShiftStart.Offset); // answer in ward time, whatever offset was sent
 
     return await FhirServerProblem.Guard(async () =>
-        await ward.GetPatientAsync(id, moment, ct) is { } series ? Results.Ok(series) : Results.NotFound());
+        await ward.GetPatientAsync(id, moment, ct, Language.From(lang)) is { } series ? Results.Ok(series) : Results.NotFound());
 });
 
 GC.KeepAlive(source);
 app.Run();
 
 public sealed record WardResponse(DateTimeOffset At, string Source, DateTimeOffset ShiftStart, DateTimeOffset ShiftEnd, IReadOnlyList<BedSummary> Beds);
+
+/// <summary>The data language a request asks for: "tr" (Turkish translations) or null (the original English).</summary>
+public static class Language
+{
+    public static string? From(string? lang) => string.Equals(lang, "tr", StringComparison.OrdinalIgnoreCase) ? "tr" : null;
+}
 
 /// <summary>Turns a FHIR server that cannot be reached into 503 problem details instead of a raw 500.</summary>
 public static class FhirServerProblem

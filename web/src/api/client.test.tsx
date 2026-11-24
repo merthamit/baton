@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { ApiError, fetchWard } from './client';
+import { ApiError, fetchPatient, fetchWard } from './client';
 import { useLatest } from './useLatest';
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -18,6 +18,17 @@ describe('API client', () => {
     await fetchWard('2026-11-23T23:30:00+03:00');
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/ward?at=2026-11-23T23%3A30%3A00%2B03%3A00');
+  });
+
+  it('asks for the data language', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ beds: [] })));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchWard('2026-11-23T23:30:00+03:00', 'tr');
+    await fetchPatient('synthetic-02', '2026-11-23T23:30:00+03:00', 'tr');
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/ward?at=2026-11-23T23%3A30%3A00%2B03%3A00&lang=tr');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/patients/synthetic-02?at=2026-11-23T23%3A30%3A00%2B03%3A00&lang=tr');
   });
 
   it('turns a 503 problem into an ApiError with status and title', async () => {

@@ -9,13 +9,13 @@ import { readUrlState, writeUrlState } from './url';
 import './board/board.css';
 
 export function App() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [view, setView] = useState(() => readUrlState(window.location.search));
-  const ward = useLatest((signal) => fetchWard(view.at, signal), [view.at]);
+  const ward = useLatest((signal) => fetchWard(view.at, lang, signal), [view.at, lang]);
   const at = view.at ?? ward.data?.at;
   const patient = useLatest(
-    (signal) => (view.bed && at ? fetchPatient(view.bed, at, signal) : Promise.resolve(undefined)),
-    [view.bed, at],
+    (signal) => (view.bed && at ? fetchPatient(view.bed, at, lang, signal) : Promise.resolve(undefined)),
+    [view.bed, at, lang],
     view.bed,
   );
 

@@ -86,7 +86,7 @@ public class SourceTests
         var until = At(17); // 01:00
         var expected = ScenarioEscalation.From(Ward.Generate(Start, 42)[1], Start).Where(r => r.At <= until);
 
-        var actual = await new InMemoryVitalSignsSource(Start, 42).GetEscalationAsync("synthetic-02", until, default);
+        var actual = await new InMemoryVitalSignsSource(Start, 42).GetEscalationAsync("synthetic-02", until, null, default);
 
         Assert.Equal(
             expected.OrderBy(r => r.At).ThenBy(r => r.GetType().Name),
