@@ -179,6 +179,18 @@ public class ShiftApiTests(WebApplicationFactory<Program> factory) : IClassFixtu
     }
 
     [Fact]
+    public async Task DoctorsList_LeavesOutScenarioCallsAnsweredBeforeTheStart()
+    {
+        var client = ClientWith();
+        var shift = await StartShift(client, hour: 14); // 22:00: bed 06's 08:04 call was answered long ago
+
+        var calls = (await Json(await client.GetAsync($"/api/shift/{shift}/calls"))).GetProperty("calls").EnumerateArray().ToList();
+
+        Assert.DoesNotContain(calls, c => c.GetProperty("call").GetProperty("arrivedAt").ValueKind != JsonValueKind.Null
+            && c.GetProperty("call").GetProperty("calledAt").GetDateTimeOffset() < Start.AddHours(14));
+    }
+
+    [Fact]
     public async Task RefusedAction_Is400_WithItsCode()
     {
         var client = ClientWith();

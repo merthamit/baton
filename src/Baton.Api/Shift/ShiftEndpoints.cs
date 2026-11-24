@@ -202,7 +202,8 @@ public static class ShiftEndpoints
             return Results.Ok(StateOf(shift, shifts));
         });
 
-        // The doctor's screen: every patient whose latest call has no plan yet, the most pressing first.
+        // The doctor's screen: every patient whose latest call has no plan yet, the most pressing first. A scenario call
+        // answered before the shift began is history, not work: only calls made in the shift or still unanswered show.
         app.MapGet("/api/shift/{id}/calls", async (string id, string? lang, WardShifts shifts, WardService ward, CancellationToken ct) =>
         {
             if (shifts.Get(id) is not { } shift)
@@ -213,7 +214,8 @@ public static class ShiftEndpoints
             var now = shifts.Now(shift);
             var beds = await ward.GetWardAsync(now, ct, Language.From(lang), new ShiftOverlaySource(source, shift));
             var calls = beds
-                .Where(b => b.Escalation.Calls.Count > 0 && b.Escalation.Calls[^1].PlannedAt is null)
+                .Where(b => b.Escalation.Calls.Count > 0 && b.Escalation.Calls[^1].PlannedAt is null
+                    && (b.Escalation.Calls[^1].CalledAt >= shift.StartedAt || b.Escalation.Calls[^1].ArrivedAt is null))
                 .Select(b =>
                 {
                     var call = b.Escalation.Calls[^1];

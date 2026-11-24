@@ -37,6 +37,14 @@
   }
 }
 
+/* The "open the other role" link looks like the buttons next to it. */
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink);
+  text-decoration: none;
+}
+
 .shift-note {
   flex-basis: 100%;
   margin: 0;
@@ -59,9 +67,9 @@ dialog.obs-form {
   gap: 8px;
 }
 
-.obs-field {
+dialog.confirm .obs-field {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) 11.5rem;
   align-items: center;
   gap: 8px;
   font-size: 0.92rem;
