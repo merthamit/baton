@@ -9,13 +9,15 @@ interface TimeControlProps {
   onChange: (at: string) => void;
   /** Called at once when the user moves the slider (before the debounced onChange). */
   onUserMove?: () => void;
+  /** While the shift plays, the clock is not announced on every tick. */
+  quiet?: boolean;
 }
 
 const stepMinutes = 15;
 const debounceMs = 150;
 
 /** A slider over the shift in 15-minute steps. The clock follows at once; the board reloads after a short pause. */
-export function TimeControl({ shiftStart, shiftEnd, at, onChange, onUserMove }: TimeControlProps) {
+export function TimeControl({ shiftStart, shiftEnd, at, onChange, onUserMove, quiet }: TimeControlProps) {
   const { t } = useT();
   const id = useId();
   const max = Math.round(minutesBetween(shiftStart, shiftEnd) / stepMinutes);
@@ -53,7 +55,7 @@ export function TimeControl({ shiftStart, shiftEnd, at, onChange, onUserMove }: 
             timer.current = setTimeout(() => onChange(addMinutes(shiftStart, next * stepMinutes)), debounceMs);
           }}
         />
-        <output htmlFor={id} className="clock mono">
+        <output htmlFor={id} className="clock mono" aria-live={quiet ? 'off' : undefined}>
           {clock(shown)}
         </output>
       </div>

@@ -171,6 +171,11 @@ export const tr: Messages = {
   livePlay: 'Vardiyayı oynat',
   livePause: 'Durdur',
   liveSpeed: 'Hız',
-  liveLink: (status: 'connecting' | 'open' | 'reconnecting'): string =>
-    ({ connecting: 'Canlı bağlantı kuruluyor…', open: 'Canlı bağlantı açık', reconnecting: 'Canlı bağlantı yeniden kuruluyor…' })[status],
+  liveLink: (status: 'connecting' | 'open' | 'reconnecting' | 'closed'): string =>
+    ({
+      connecting: 'Canlı bağlantı kuruluyor…',
+      open: 'Canlı bağlantı açık',
+      reconnecting: 'Canlı bağlantı yeniden kuruluyor…',
+      closed: 'Canlı bağlantı kapalı: yeniden bağlanmak için sayfayı yenileyin',
+    })[status],
 };

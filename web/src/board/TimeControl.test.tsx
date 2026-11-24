@@ -9,4 +9,10 @@ describe('TimeControl', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('23:38');
   });
+
+  it('stops announcing the clock while the shift plays', () => {
+    renderIn(<TimeControl shiftStart="2026-11-23T08:00:00+03:00" shiftEnd="2026-11-24T08:00:00+03:00" at="2026-11-23T23:38:00+03:00" quiet onChange={vi.fn()} />);
+
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'off');
+  });
 });

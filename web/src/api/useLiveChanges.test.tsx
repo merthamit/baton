@@ -31,6 +31,16 @@ describe('useLiveChanges', () => {
     expect(screen.getByText('reconnecting')).toBeInTheDocument();
   });
 
+  it('says when the link is closed for good', () => {
+    render(<Probe onChange={vi.fn()} />);
+    const source = FakeEventSource.last();
+
+    source.readyState = 2;
+    act(() => source.onerror?.());
+
+    expect(screen.getByText('closed')).toBeInTheDocument();
+  });
+
   it('passes on a change', () => {
     const onChange = vi.fn();
     render(<Probe onChange={onChange} />);

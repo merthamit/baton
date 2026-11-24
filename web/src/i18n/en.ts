@@ -171,8 +171,13 @@ export const en = {
   livePlay: 'Play the shift',
   livePause: 'Pause',
   liveSpeed: 'Speed',
-  liveLink: (status: 'connecting' | 'open' | 'reconnecting'): string =>
-    ({ connecting: 'Live link connecting…', open: 'Live link on', reconnecting: 'Live link reconnecting…' })[status],
+  liveLink: (status: 'connecting' | 'open' | 'reconnecting' | 'closed'): string =>
+    ({
+      connecting: 'Live link connecting…',
+      open: 'Live link on',
+      reconnecting: 'Live link reconnecting…',
+      closed: 'Live link off: reload the page to reconnect',
+    })[status],
 };
 
 export type Messages = typeof en;

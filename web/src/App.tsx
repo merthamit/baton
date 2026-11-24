@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, addTryAction, confirmHandover, endTry, fetchHandover, fetchHealth, fetchPatient, fetchWard, startTry, type TryActionKind } from './api/client';
 import { useLatest } from './api/useLatest';
 import { useLiveChanges } from './api/useLiveChanges';
@@ -34,8 +34,14 @@ export function App() {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<LiveSpeed>(60);
 
-  // Live board: a change anywhere (FHIR Subscription, a handover, our own Try session) makes everything refetch.
-  const liveStatus = useLiveChanges(() => setRevision((n) => n + 1), trySession?.id);
+  // Live board: a change anywhere (FHIR Subscription, a handover, our own Try session) makes everything refetch, once
+  // per burst (one new observation set is seven FHIR notifications).
+  const refetchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const liveStatus = useLiveChanges(() => {
+    clearTimeout(refetchTimer.current);
+    refetchTimer.current = setTimeout(() => setRevision((n) => n + 1), 300);
+  }, trySession?.id);
+  useEffect(() => () => clearTimeout(refetchTimer.current), []);
 
   const health = useLatest((signal) => fetchHealth(signal), []);
   const ward = useLatest((signal) => fetchWard(view.at, lang, signal, trySession?.id), [view.at, lang, trySession?.id, revision]);
@@ -81,24 +87,31 @@ export function App() {
     [setAt],
   );
 
-  // The live clock: every 2 s the ward moves speed × 2 s of scenario time, and stops at the shift end.
+  // The live clock: every 2 s the ward moves speed × 2 s of scenario time, and stops at the shift end. A tick waits
+  // while the ward for the current moment is still loading, so a slow server is never asked to start over.
   const shiftEnd = ward.data?.shiftEnd;
-  const wardAt = ward.data?.at;
+  const clockNow = useRef<string | undefined>(undefined);
+  clockNow.current = at;
+  const wardLoading = useRef(false);
+  wardLoading.current = ward.loading;
   useEffect(() => {
-    if (!playing || !shiftEnd || !wardAt) {
+    if (!playing || !shiftEnd) {
       return undefined;
     }
     const timer = setInterval(() => {
-      setView((v) => {
-        const next = nextLiveAt(v.at ?? wardAt, shiftEnd, speed, 2000);
-        if (next === shiftEnd) {
-          setPlaying(false);
-        }
-        return { ...v, at: next };
-      });
+      if (wardLoading.current || !clockNow.current) {
+        return;
+      }
+      const next = nextLiveAt(clockNow.current, shiftEnd, speed, 2000);
+      clockNow.current = next;
+      wardLoading.current = true;
+      setView((v) => ({ ...v, at: next }));
+      if (next === shiftEnd) {
+        setPlaying(false);
+      }
     }, 2000);
     return () => clearInterval(timer);
-  }, [playing, speed, shiftEnd, wardAt]);
+  }, [playing, speed, shiftEnd]);
   const showView = (next: 'board' | 'handover') => setView((v) => ({ ...v, view: next === 'handover' ? 'handover' : undefined }));
 
   const takeOver = async (patientId: string): Promise<string | null> => {
@@ -225,7 +238,7 @@ export function App() {
 
       {data && (
         <section className="controls" aria-label={t.timeLabel}>
-          <TimeControl shiftStart={data.shiftStart} shiftEnd={data.shiftEnd} at={view.at ?? data.at} onChange={moveClock} onUserMove={() => setPlaying(false)} />
+          <TimeControl shiftStart={data.shiftStart} shiftEnd={data.shiftEnd} at={view.at ?? data.at} onChange={moveClock} onUserMove={() => setPlaying(false)} quiet={playing} />
           <LiveControl
             playing={playing}
             speed={speed}

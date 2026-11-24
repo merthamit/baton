@@ -8,7 +8,7 @@ export interface WardChange {
   at: string;
 }
 
-export type LiveStatus = 'connecting' | 'open' | 'reconnecting';
+export type LiveStatus = 'connecting' | 'open' | 'reconnecting' | 'closed';
 
 /** Accepts camelCase or PascalCase JSON, so a serializer setting on the server never silences the board. */
 function read(data: string): WardChange | null {
@@ -39,7 +39,8 @@ export function useLiveChanges(onChange: (change: WardChange) => void, trySessio
     // A Try session's own changes come only on a stream opened for that session (the public one never names sessions).
     const source = new EventSource(trySession ? `/api/live?try=${encodeURIComponent(trySession)}` : '/api/live');
     source.onopen = () => setStatus('open');
-    source.onerror = () => setStatus('reconnecting');
+    // The browser retries by itself; when it gives up (readyState CLOSED) the link is off until a reload.
+    source.onerror = () => setStatus(source.readyState === 2 ? 'closed' : 'reconnecting');
     source.addEventListener('ready', () => setStatus('open'));
     source.addEventListener('change', (e: MessageEvent<string>) => {
       const change = read(e.data);

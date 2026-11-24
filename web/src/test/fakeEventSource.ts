@@ -7,6 +7,8 @@ export class FakeEventSource {
   onopen: (() => void) | null = null;
   onerror: (() => void) | null = null;
   closed = false;
+  /** 0 connecting, 1 open, 2 closed (the browser gave up reconnecting). */
+  readyState = 0;
   private listeners = new Map<string, ((e: MessageEvent) => void)[]>();
 
   constructor(url: string) {

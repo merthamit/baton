@@ -175,3 +175,55 @@ describe('App live board', () => {
     expect(screen.getByRole('button', { name: 'Play the shift' })).toBeInTheDocument();
   });
 });
+
+describe('App live board robustness', () => {
+  it('does not move the clock while the ward for the current moment is still loading', async () => {
+    window.history.replaceState(null, '', '/?at=2026-11-23T23%3A00%3A00%2B03%3A00');
+    FakeEventSource.install();
+    let wardCalls = 0;
+    route({
+      '/health': () => respond(200, { tryAvailable: true }),
+      // The first answer comes at once; every later one never does (a slow FHIR server).
+      '/api/ward': () => (++wardCalls === 1 ? respond(200, ward(beds)) : undefined),
+    });
+    renderIn(<App />);
+    const play = await screen.findByRole('button', { name: 'Play the shift' });
+
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    try {
+      await userEvent.click(play);
+      act(() => vi.advanceTimersByTime(2000));
+      const afterFirst = window.location.search;
+      expect(afterFirst).toContain('23%3A02');
+      act(() => vi.advanceTimersByTime(4000));
+      expect(window.location.search).toBe(afterFirst);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('refetches once for a burst of change events', async () => {
+    window.history.replaceState(null, '', '/');
+    FakeEventSource.install();
+    let wardCalls = 0;
+    route({
+      '/health': () => respond(200, { tryAvailable: true }),
+      '/api/ward': () => {
+        wardCalls += 1;
+        return respond(200, ward(beds));
+      },
+    });
+    renderIn(<App />);
+    await screen.findByRole('button', { name: /Bed 02/ });
+    const before = wardCalls;
+
+    for (let i = 0; i < 7; i++) {
+      act(() => FakeEventSource.last().emit('change', { kind: 'Fhir', patientId: 'synthetic-03', trySession: null, at: '2026-11-24T08:00:00Z' }));
+    }
+
+    await waitFor(() => expect(wardCalls).toBe(before + 1));
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(wardCalls).toBe(before + 1);
+  });
+});
+
