@@ -9,6 +9,7 @@ namespace Baton.Api;
 public sealed record ScorePoint(
     DateTimeOffset At,
     int? Total,
+    int? MinimumTotal,
     RiskLevel? Risk,
     ClinicalResponse? Response,
     string? MinimumMonitoringFrequency,
@@ -161,7 +162,7 @@ public sealed class WardService(IVitalSignsSource source)
             var reading = VitalSignsReader.Read(observations.Where(o => TimeOf(o) is { } t && t <= time), options);
             var score = News2Calculator.Calculate(reading.Input);
             var local = time.ToOffset(at.Offset);
-            return new ScorePoint(local, score.Total, score.Risk, score.Response, score.MinimumMonitoringFrequency,
+            return new ScorePoint(local, score.Total, score.MinimumTotal, score.Risk, score.Response, score.MinimumMonitoringFrequency,
                 score.SubScores, score.ParametersScoring3, score.Problems, reading.Input, reading.Notes);
         }).ToList();
     }
