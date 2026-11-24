@@ -215,6 +215,20 @@ public class HandoverApiTests(WebApplicationFactory<Program> factory) : IClassFi
     }
 
     [Fact]
+    public async Task ConfirmWithoutAMomentIs400()
+    {
+        var response = await NewClient().PostAsJsonAsync("/api/handover/synthetic-02", new { lang = "en" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ConfirmOutsideTheShiftIs400()
+    {
+        Assert.Equal(HttpStatusCode.BadRequest, (await Confirm(NewClient(), "synthetic-02", 30)).StatusCode);
+    }
+
+    [Fact]
     public async Task UnknownPatientIs404()
     {
         Assert.Equal(HttpStatusCode.NotFound, (await Confirm(NewClient(), "synthetic-99", 24)).StatusCode);

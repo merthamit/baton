@@ -166,6 +166,7 @@ export const en = {
   sourceListLabel: 'Sources of this sentence',
   actTakeOver: 'Taken over',
   handoverTryNote: 'Try mode is a rehearsal: handovers are not stored.',
+  handoverAlready: 'This patient was already taken over at this moment.',
 
   liveLabel: 'Live clock',
   livePlay: 'Play the shift',

@@ -166,6 +166,7 @@ export const tr: Messages = {
   sourceListLabel: 'Bu cümlenin kaynakları',
   actTakeOver: 'Devraldım',
   handoverTryNote: 'Dene modu bir prova: devirler saklanmaz.',
+  handoverAlready: 'Bu hasta bu anda zaten devralınmış.',
 
   liveLabel: 'Akan saat',
   livePlay: 'Vardiyayı oynat',

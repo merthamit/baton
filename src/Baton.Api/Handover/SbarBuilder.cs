@@ -291,7 +291,14 @@ public static class SbarBuilder
         var sentences = new List<SbarSentence>();
         if (c.Latest is not null && c.Input.NextDue is { } due)
         {
-            sentences.Add(Say(t.NextDue(c.Time(due), c.Input.OverdueMinutes), c.Of(c.Latest)));
+            // The due time comes from the last set and, when a concern tightened it (3C), from that concern too.
+            var dueSources = c.Of(c.Latest).ToList();
+            if (c.Records.OfType<ConcernRaised>().LastOrDefault(r => r.At >= c.WindowStart) is { } concern)
+            {
+                dueSources.Add(c.Of(concern));
+            }
+
+            sentences.Add(Say(t.NextDue(c.Time(due), c.Input.OverdueMinutes), dueSources));
         }
 
         sentences.Add(Contingency(c));

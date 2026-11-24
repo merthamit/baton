@@ -21,6 +21,21 @@ describe('SourceButton', () => {
     expect(screen.getByRole('button', { name: 'Source' })).toHaveAccessibleDescription('NEWS2 3 Low at 07:00.');
   });
 
+  it('closes when you click elsewhere', async () => {
+    renderIn(
+      <div>
+        <SourceButton sources={sources} />
+        <p>Elsewhere</p>
+      </div>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Source' }));
+    expect(screen.getByRole('group', { name: 'Sources of this sentence' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('Elsewhere'));
+
+    expect(screen.queryByRole('group', { name: 'Sources of this sentence' })).toBeNull();
+  });
+
   it('opens and closes the source popover with Esc, returning focus', async () => {
     renderIn(<SourceButton sources={sources} />);
     const button = screen.getByRole('button', { name: 'Source' });

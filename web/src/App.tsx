@@ -123,6 +123,10 @@ export function App() {
       setRevision((n) => n + 1);
       return null;
     } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        setRevision((n) => n + 1); // show the existing handover
+        return t.handoverAlready;
+      }
       return e instanceof ApiError ? e.title : String(e);
     }
   };

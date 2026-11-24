@@ -238,6 +238,12 @@ app.MapPost("/api/handover/{patientId}", async (string patientId, HandoverConfir
         return Results.Problem("A Try session is a rehearsal: its handover is not stored.", statusCode: StatusCodes.Status409Conflict, title: "Handover not stored in Try");
     }
 
+    // A handover belongs to a moment of the scenario: a missing `at` (default date) or one outside the shift is refused.
+    if (body.At < settings.ShiftStart || body.At > settings.ShiftStart.AddHours(Baton.Scenarios.ShiftSimulator.ShiftHours))
+    {
+        return Results.Problem("'at' must be a moment inside the scenario shift.", statusCode: StatusCodes.Status400BadRequest);
+    }
+
     var local = body.At.ToOffset(settings.ShiftStart.Offset);
     var minute = new DateTimeOffset(local.Year, local.Month, local.Day, local.Hour, local.Minute, 0, local.Offset);
 

@@ -12,6 +12,8 @@ export function SourceButton({ sources, describedBy }: { sources: SourceRef[]; d
   const id = useId();
   const button = useRef<HTMLButtonElement>(null);
 
+  const wrapper = useRef<HTMLSpanElement>(null);
+
   useEffect(() => {
     if (!open) {
       return undefined;
@@ -22,8 +24,18 @@ export function SourceButton({ sources, describedBy }: { sources: SourceRef[]; d
         button.current?.focus();
       }
     };
+    // A click anywhere outside the button and its list closes it.
+    const onPointer = (e: PointerEvent) => {
+      if (wrapper.current && e.target instanceof Node && !wrapper.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onPointer);
+    };
   }, [open]);
 
   const groups = new Map<string, string[]>();
@@ -32,7 +44,7 @@ export function SourceButton({ sources, describedBy }: { sources: SourceRef[]; d
   }
 
   return (
-    <span className="source">
+    <span className="source" ref={wrapper}>
       <button
         ref={button}
         type="button"

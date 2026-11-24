@@ -227,3 +227,27 @@ describe('App live board robustness', () => {
   });
 });
 
+describe('App handover conflict', () => {
+  it('explains an existing handover in the interface language and refreshes', async () => {
+    window.history.replaceState(null, '', '/?view=handover&bed=synthetic-02');
+    FakeEventSource.install();
+    let handoverCalls = 0;
+    route({
+      '/health': () => respond(200, { tryAvailable: true }),
+      '/api/ward': () => respond(200, ward(beds)),
+      '/api/handover/': () => respond(409, { title: 'Already taken over' }),
+      '/api/handover': () => {
+        handoverCalls += 1;
+        return respond(200, handover([handoverRow()]));
+      },
+    });
+    renderIn(<App />, 'tr');
+    await userEvent.click(await screen.findByRole('button', { name: 'Devraldım' }));
+    const before = handoverCalls;
+    await userEvent.click(screen.getByRole('button', { name: 'Onayla' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Bu hasta bu anda zaten devralınmış.');
+    await waitFor(() => expect(handoverCalls).toBeGreaterThan(before));
+  });
+});
+

@@ -514,6 +514,17 @@ public class SbarBuilderTests
     }
 
     [Fact]
+    public void NextObservationNamesTheConcernThatTightenedIt()
+    {
+        var records = new EscalationRecord[] { new ConcernRaised(T(24, 6, 30), Nurse, "Restless") };
+        var sbar = SbarBuilder.Build(Input([Point(T(24, 6), 1, RiskLevel.Low)], records, nextDue: T(24, 7, 30)), null);
+
+        var due = Section(sbar, SbarPart.Recommendation).Sentences[0];
+        Assert.StartsWith("Next observation due", due.Text, StringComparison.Ordinal);
+        Assert.Contains(due.Sources, s => s.Reference == $"Flag/concern-{Pid}-202611240630");
+    }
+
+    [Fact]
     public void ConcernInWindowIsAnOpenItem()
     {
         var records = new EscalationRecord[] { new ConcernRaised(T(23, 20, 15), Nurse, "Restless") };
