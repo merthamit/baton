@@ -23,6 +23,10 @@ function title(record: EscalationRecordView, t: Messages): string {
       return t.recPatientOrFamilyConcern;
     case 'Called':
       return t.recCalled(record.tier ? t[`tier${record.tier}`] : '');
+    case 'Acknowledged':
+      return t.recAcknowledged;
+    case 'ObservationNotDone':
+      return t.recObservationNotDone;
     case 'Arrived':
       return t.recArrived;
     case 'Assessed':

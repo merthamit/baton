@@ -1,0 +1,234 @@
+/* Week 10: the live shift — banner, bedside entry form, doctor's calls. */
+
+.shift-bar {
+  border-color: var(--accent);
+}
+
+.shift-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.05rem;
+}
+
+.shift-clock .mono {
+  font-family: var(--f-data);
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 3px var(--ok-bg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .live-dot {
+    animation: live-pulse 2s ease-in-out infinite;
+  }
+}
+
+@keyframes live-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.shift-note {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+/* Bedside entry: a phone-width form, one column of large fields. */
+dialog.obs-form {
+  width: min(420px, 100%);
+}
+
+.obs-measure {
+  display: grid;
+  gap: 4px;
+  font-size: 0.82rem;
+}
+
+.obs-fields {
+  display: grid;
+  gap: 8px;
+}
+
+.obs-field {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+}
+
+.obs-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.obs-input input,
+.obs-input select {
+  width: 8.5rem;
+  min-height: 40px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-family: var(--f-data);
+}
+
+.obs-sub {
+  min-width: 2.2em;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.obs-sub[data-score='2'] {
+  color: var(--mid);
+  font-weight: 700;
+}
+
+.obs-sub[data-score='3'] {
+  color: var(--bad);
+  font-weight: 700;
+}
+
+.obs-result {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.obs-result[data-tier='2'] {
+  border-color: var(--mid);
+  background: var(--mid-bg);
+}
+
+.obs-result[data-tier='3'] {
+  border-color: var(--bad);
+  background: var(--bad-bg);
+}
+
+.obs-result p {
+  margin: 0;
+}
+
+.obs-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.obs-score .score {
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.obs-response,
+.obs-next,
+.obs-called {
+  font-size: 0.9rem;
+}
+
+.not-done {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.not-done fieldset {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.not-done label[data-urgent] {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.due[data-state='not-done'] {
+  color: var(--muted);
+}
+
+.due[data-state='not-done'][data-urgent] {
+  color: var(--bad);
+  font-weight: 700;
+}
+
+/* Doctor's screen: one card per call, the most pressing first. */
+.doctor h2 {
+  margin: 0 0 10px;
+}
+
+.doctor-calls {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: 640px;
+}
+
+.doctor-call {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-left-width: 6px;
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.doctor-call[data-tier='2'] {
+  border-left-color: var(--mid);
+}
+
+.doctor-call[data-tier='3'] {
+  border-left-color: var(--bad);
+}
+
+.doctor-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.doctor-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.doctor-score .score {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.doctor-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.doctor-target[data-passed] {
+  color: var(--bad);
+  font-weight: 700;
+}

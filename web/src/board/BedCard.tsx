@@ -165,6 +165,11 @@ export function BedCard({ bed, selected, onSelect }: BedCardProps) {
             <span>{t.nextObs(clock(bed.nextDue))}</span>
           </span>
         )}
+        {bed.notDone && (
+          <span className="due" data-state="not-done" data-urgent={bed.notDone.urgent || undefined}>
+            {t.notDoneCard(clock(bed.notDone.at), t[`reason${bed.notDone.reason}`])}
+          </span>
+        )}
         {latest?.response === 'EmergencyResponse' && <span className="due continuous">{t.continuous}</span>}
         {latest && <span className="last">{t.lastObs(clock(latest.at))}</span>}
       </span>

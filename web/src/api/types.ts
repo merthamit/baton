@@ -81,7 +81,7 @@ export interface WardEvent {
 
 export type EscalationTier = 'OnCallDoctor' | 'SeniorDoctor' | 'CriticalCare';
 
-export type EscalationStep = 'None' | 'Called' | 'Arrived' | 'Assessed' | 'Planned';
+export type EscalationStep = 'None' | 'Called' | 'Acknowledged' | 'Arrived' | 'Assessed' | 'Planned';
 
 export interface CallState {
   callId: string;
@@ -94,6 +94,9 @@ export interface CallState {
   assessment: string | null;
   plannedAt: string | null;
   plan: string | null;
+  /** When the called clinician confirmed the call ("coming"); only shift calls have one. */
+  acknowledgedAt?: string | null;
+  acknowledgedBy?: string | null;
 }
 
 /** The escalation chain at the requested moment, computed by the API (Baton reports; it never calls anyone). */
@@ -109,7 +112,15 @@ export interface EscalationState {
   suggestedNextTier: EscalationTier | null;
 }
 
-export type EscalationRecordKind = 'ConcernRaised' | 'PatientOrFamilyConcern' | 'Called' | 'Arrived' | 'Assessed' | 'Planned';
+export type EscalationRecordKind =
+  | 'ConcernRaised'
+  | 'PatientOrFamilyConcern'
+  | 'Called'
+  | 'Acknowledged'
+  | 'Arrived'
+  | 'Assessed'
+  | 'Planned'
+  | 'ObservationNotDone';
 
 export interface EscalationRecordView {
   at: string;
@@ -135,7 +146,75 @@ export interface BedSummary {
   escalation: EscalationState;
   eventsAvailable: boolean;
   events: WardEvent[];
+  /** The latest "not done" since the last set (shift mode); urgent when no reading could be obtained. */
+  notDone?: NotDoneView | null;
 }
+
+export type NotDoneReason = 'PatientAsleep' | 'PatientDeclined' | 'OffTheWard' | 'EquipmentUnavailable' | 'EndOfLifeCare' | 'CouldNotBeObtained';
+
+export interface NotDoneView {
+  at: string;
+  reason: NotDoneReason;
+  note: string | null;
+  urgent: boolean;
+}
+
+// Real ward flow (week 10): /api/shift.
+
+export interface ShiftState {
+  shiftId: string;
+  startedAt: string;
+  now: string;
+  speed: number;
+  shiftEnd: string;
+}
+
+/** One bedside set; oxygen is a flow in L/min, 0 = room air. */
+export interface VitalSet {
+  respirationRate: number;
+  spO2: number;
+  oxygenLitresPerMinute: number;
+  systolicBp: number;
+  pulseRate: number;
+  temperatureCelsius: number;
+  consciousness: Consciousness;
+}
+
+export interface MeasureResult {
+  at: string;
+  vitals: VitalSet;
+  scale: 'Scale1' | 'Scale2';
+}
+
+export interface ShiftObservationResult {
+  latest: ScorePoint | null;
+  nextDue: string | null;
+  escalation: EscalationState;
+}
+
+/** The engine's score for a set that is not stored (the entry form's preview). */
+export interface News2Preview {
+  isComplete: boolean;
+  total: number | null;
+  risk: RiskLevel | null;
+  response: ClinicalResponse | null;
+  subScores: Record<SubScoreKey, number | null>;
+  parametersScoring3: News2Parameter[];
+}
+
+export interface DoctorCall {
+  patientId: string;
+  bed: string | null;
+  name: string;
+  latest: ScorePoint | null;
+  step: EscalationStep;
+  call: CallState;
+  minutesSinceCall: number;
+  targetPassed: boolean;
+  suggestedNextTier: EscalationTier | null;
+}
+
+export type ShiftActionKind = 'Concern' | 'PatientOrFamilyConcern' | 'Call' | 'Acknowledge' | 'Arrive' | 'Assess' | 'Plan';
 
 export interface WardResponse {
   at: string;

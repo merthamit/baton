@@ -24,3 +24,31 @@ export function refusalText(type: string | undefined, detail: string, t: Message
       return detail;
   }
 }
+
+/** A shift refusal (urn:baton:shift:{code}) in the interface language; `fieldLabel` names a refused field. */
+export function shiftRefusalText(type: string | undefined, detail: string, t: Messages, fieldLabel?: string): string {
+  switch (type?.replace('urn:baton:shift:', '')) {
+    case 'out-of-range':
+      return t.shiftRefusalOutOfRange(fieldLabel ?? '');
+    case 'taken-time':
+      return t.shiftRefusalTakenTime;
+    case 'shift-over':
+      return t.shiftRefusalShiftOver;
+    case 'too-many':
+      return t.shiftRefusalTooMany;
+    case 'note-too-long':
+      return t.tryRefusalNoteTooLong;
+    case 'no-open-call':
+      return t.shiftRefusalNoOpenCall;
+    case 'already-acknowledged':
+      return t.shiftRefusalAlreadyAcknowledged;
+    case 'no-arrival':
+      return t.shiftRefusalNoArrival;
+    case 'assessment-first':
+      return t.tryRefusalAssessmentFirst;
+    case 'unknown':
+      return t.tryRefusalUnknown;
+    default:
+      return detail;
+  }
+}

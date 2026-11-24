@@ -4,7 +4,7 @@ import { useT } from '../i18n/LanguageProvider';
 import { clock, minutesBetween } from '../time';
 import { Icon } from '../ui/Icon';
 
-const steps: Exclude<EscalationStep, 'None'>[] = ['Called', 'Arrived', 'Assessed', 'Planned'];
+const steps: Exclude<EscalationStep, 'None'>[] = ['Called', 'Acknowledged', 'Arrived', 'Assessed', 'Planned'];
 
 /**
  * The card's escalation strip: the four steps of the latest call as labelled text (never colour or dots alone), the
@@ -17,9 +17,11 @@ export function ChainStrip({ state }: { state: EscalationState }) {
     return null;
   }
 
-  const reached = steps.indexOf(state.step as (typeof steps)[number]);
-  const label = { Called: t.stepCalled, Arrived: t.stepArrived, Assessed: t.stepAssessed, Planned: t.stepPlanned };
   const latest = state.calls.at(-1);
+  // The acknowledge step exists only for calls answered in a shift; scenario calls keep their four steps.
+  const shown = latest?.acknowledgedAt || state.step === 'Acknowledged' ? steps : steps.filter((s) => s !== 'Acknowledged');
+  const reached = shown.indexOf(state.step as (typeof steps)[number]);
+  const label = { Called: t.stepCalled, Acknowledged: t.stepAcknowledged, Arrived: t.stepArrived, Assessed: t.stepAssessed, Planned: t.stepPlanned };
   const open = state.openCall;
   const tierName = (tier: string) => t[`tier${tier}` as 'tierOnCallDoctor'];
 
@@ -36,7 +38,7 @@ export function ChainStrip({ state }: { state: EscalationState }) {
     <span className="chain">
       {state.step !== 'None' && (
         <ol className="chain-steps" aria-label={t.chainLabel} id={id}>
-          {steps.map((step, i) => {
+          {shown.map((step, i) => {
             const done = i <= reached;
             return (
               <li key={step} data-state={done ? 'done' : 'todo'}>

@@ -13,12 +13,23 @@ import { PatientDetail } from './patient/PatientDetail';
 import type { DialogResult } from './ui/ConfirmDialog';
 import { readUrlState, writeUrlState } from './url';
 import { refusalText } from './try/refusal';
+import { endShift, fetchCalls, fetchShift, setShiftSpeed, startShift } from './api/shiftClient';
+import type { ShiftState } from './api/types';
+import { BedsidePanel } from './shift/BedsidePanel';
+import { DoctorView } from './shift/DoctorView';
+import { ShiftBar } from './shift/ShiftBar';
+import './shift/shift.css';
 import { clock } from './time';
 import './board/board.css';
 
 /** The API's answer for a Try session it no longer has (see TryOverlay.Expired). */
 function isSessionGone(e: unknown): boolean {
   return e instanceof ApiError && e.status === 404 && e.title === 'Try session expired';
+}
+
+/** The API's answer for a shift it no longer has (ShiftEndpoints.Expired). */
+function isShiftGone(e: unknown): boolean {
+  return e instanceof ApiError && e.status === 404 && e.title === 'Shift not found';
 }
 
 interface TrySessionState {
@@ -39,25 +50,49 @@ export function App() {
   // Live board: a change anywhere (FHIR Subscription, a handover, our own Try session) makes everything refetch, once
   // per burst (one new observation set is seven FHIR notifications).
   const refetchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const liveStatus = useLiveChanges(() => {
-    clearTimeout(refetchTimer.current);
-    refetchTimer.current = setTimeout(() => setRevision((n) => n + 1), 300);
-  }, trySession?.id);
+  const shiftId = view.shift;
+  const liveStatus = useLiveChanges(
+    () => {
+      clearTimeout(refetchTimer.current);
+      refetchTimer.current = setTimeout(() => setRevision((n) => n + 1), 300);
+    },
+    trySession?.id,
+    shiftId,
+  );
   useEffect(() => () => clearTimeout(refetchTimer.current), []);
 
+  // A shift's ward clock runs on the server: every 5 s the board asks again (timers, overdue sets), besides live changes.
+  useEffect(() => {
+    if (!shiftId) {
+      return undefined;
+    }
+    const timer = setInterval(() => setRevision((n) => n + 1), 5000);
+    return () => clearInterval(timer);
+  }, [shiftId]);
+
   const health = useLatest((signal) => fetchHealth(signal), []);
-  const ward = useLatest((signal) => fetchWard(view.at, lang, signal, trySession?.id), [view.at, lang, trySession?.id, revision]);
-  const at = view.at ?? ward.data?.at;
+  const shift = useLatest((signal) => (shiftId ? fetchShift(shiftId, signal) : Promise.resolve(undefined)), [shiftId, revision]);
+  const [shiftSeen, setShiftSeen] = useState<{ state: ShiftState; at: number } | null>(null);
+  useEffect(() => {
+    if (shift.data) {
+      setShiftSeen({ state: shift.data, at: Date.now() });
+    }
+  }, [shift.data]);
+  const wardAt = shiftId ? undefined : view.at;
+  const ward = useLatest((signal) => fetchWard(wardAt, lang, signal, trySession?.id, shiftId), [wardAt, lang, trySession?.id, shiftId, revision]);
+  const at = shiftId ? ward.data?.at : (view.at ?? ward.data?.at);
   const onHandover = view.view === 'handover';
+  const doctor = !!shiftId && view.role === 'doctor';
   const patient = useLatest(
-    (signal) => (!onHandover && view.bed && at ? fetchPatient(view.bed, at, lang, signal, trySession?.id) : Promise.resolve(undefined)),
-    [onHandover, view.bed, at, lang, trySession?.id, revision],
+    (signal) => (!onHandover && !doctor && view.bed && at ? fetchPatient(view.bed, at, lang, signal, trySession?.id, shiftId) : Promise.resolve(undefined)),
+    [onHandover, doctor, view.bed, at, lang, trySession?.id, shiftId, revision],
     view.bed,
   );
   const handover = useLatest(
-    (signal) => (onHandover && at ? fetchHandover(at, lang, signal, trySession?.id) : Promise.resolve(undefined)),
-    [onHandover, at, lang, trySession?.id, revision],
+    (signal) => (onHandover && !doctor && at ? fetchHandover(at, lang, signal, trySession?.id, shiftId) : Promise.resolve(undefined)),
+    [onHandover, doctor, at, lang, trySession?.id, shiftId, revision],
   );
+  const calls = useLatest((signal) => (doctor && shiftId ? fetchCalls(shiftId, lang, signal) : Promise.resolve(undefined)), [doctor, shiftId, lang, revision]);
 
   useEffect(() => {
     const search = writeUrlState(view);
@@ -74,6 +109,16 @@ export function App() {
       setTryMessage(t.tryExpired);
     }
   }, [expired, t.tryExpired]);
+
+  // A shift the API no longer has (ended in another tab, expired, restarted) leaves shift mode with a message.
+  const shiftGone = !!shiftId && [shift.error, ward.error, patient.error, handover.error, calls.error].some(isShiftGone);
+  useEffect(() => {
+    if (shiftGone) {
+      setView((v) => ({ ...v, shift: undefined, role: undefined }));
+      setShiftSeen(null);
+      setTryMessage(t.shiftExpired);
+    }
+  }, [shiftGone, t.shiftExpired]);
 
   const selectBed = useCallback((bed: string) => {
     setView((v) => ({ ...v, bed }));
@@ -135,6 +180,46 @@ export function App() {
   const data = ward.data;
 
   const tryAvailable = health.data?.tryAvailable === true;
+
+  const beginShift = async () => {
+    if (!at) {
+      return;
+    }
+    setTryMessage(null);
+    if (trySession) {
+      void endTry(trySession.id).catch(() => undefined);
+      setTrySession(null);
+    }
+    try {
+      const started = await startShift(at, 10);
+      setPlaying(false);
+      setView((v) => ({ ...v, shift: started.shiftId, role: undefined, at: undefined }));
+    } catch {
+      setTryMessage(t.shiftStartFailed);
+    }
+  };
+
+  const leaveShift = () => {
+    if (shiftId) {
+      void endShift(shiftId).catch(() => undefined);
+    }
+    setShiftSeen(null);
+    setView((v) => ({ ...v, shift: undefined, role: undefined, at: at ?? v.at }));
+  };
+
+  const changeSpeed = async (speed: number) => {
+    if (!shiftId) {
+      return;
+    }
+    try {
+      setShiftSeen({ state: await setShiftSpeed(shiftId, speed), at: Date.now() });
+    } catch {
+      setRevision((n) => n + 1);
+    }
+  };
+
+  const bump = () => setRevision((n) => n + 1);
+  const otherRoleHref = shiftId ? `${window.location.pathname}?shift=${shiftId}${doctor ? '' : '&role=doctor'}` : '';
   const tryReason = health.data && !tryAvailable ? t.tryNeedsMemory : tryAvailable && !view.bed ? t.tryChooseBed : null;
 
   const begin = async () => {
@@ -204,20 +289,32 @@ export function App() {
         </div>
         <div className="mode">
           <div className="seg" role="group" aria-label={t.modeLabel}>
-            <button type="button" aria-pressed={!trySession} onClick={reset}>
+            <button
+              type="button"
+              aria-pressed={!trySession && !shiftId}
+              onClick={() => {
+                reset();
+                if (shiftId) {
+                  leaveShift();
+                }
+              }}
+            >
               {t.modeWatch}
             </button>
             {/* Pressed while Try is on: clicking it again never restarts Try (that would drop the actions or switch patient). */}
             <button
               type="button"
               aria-pressed={!!trySession}
-              disabled={!trySession && (!tryAvailable || !view.bed)}
+              disabled={!!shiftId || (!trySession && (!tryAvailable || !view.bed))}
               onClick={() => (trySession ? undefined : void begin())}
             >
               {t.modeTry}
             </button>
+            <button type="button" aria-pressed={!!shiftId} disabled={!shiftId && !tryAvailable} onClick={() => (shiftId ? undefined : void beginShift())}>
+              {t.modeShift}
+            </button>
           </div>
-          {!trySession && tryReason && <span className="reason">{tryReason}</span>}
+          {!trySession && !shiftId && tryReason && <span className="reason">{tryReason}</span>}
         </div>
         <LanguageToggle />
         <p className="live-link muted" role="status">
@@ -242,7 +339,19 @@ export function App() {
         </section>
       )}
 
-      {data && (
+      {shiftId && shiftSeen && (
+        <ShiftBar
+          state={shiftSeen.state}
+          fetchedAt={shiftSeen.at}
+          role={doctor ? 'doctor' : 'nurse'}
+          otherRoleHref={otherRoleHref}
+          onRole={(role) => setView((v) => ({ ...v, role: role === 'doctor' ? 'doctor' : undefined }))}
+          onSpeed={(s) => void changeSpeed(s)}
+          onEnd={leaveShift}
+        />
+      )}
+
+      {data && !shiftId && (
         <section className="controls" aria-label={t.timeLabel}>
           <TimeControl shiftStart={data.shiftStart} shiftEnd={data.shiftEnd} at={view.at ?? data.at} onChange={moveClock} onUserMove={() => setPlaying(false)} quiet={playing} />
           <LiveControl
@@ -258,7 +367,7 @@ export function App() {
         </section>
       )}
 
-      {ward.error && !expired && (
+      {ward.error && !expired && !shiftGone && (
         <div className="alert" role="alert">
           <p>{ward.error instanceof ApiError && ward.error.status === 503 ? t.fhirDown : t.loadError}</p>
           <button type="button" className="btn" onClick={ward.retry}>
@@ -267,7 +376,9 @@ export function App() {
         </div>
       )}
 
-      {onHandover && !ward.error && (
+      {doctor && <DoctorView shiftId={shiftId!} calls={calls.data?.calls} onChanged={bump} />}
+
+      {onHandover && !doctor && !ward.error && (
         <>
           {handover.error && !expired ? (
             <div className="alert" role="alert">
@@ -295,9 +406,9 @@ export function App() {
       )}
 
       {/* After an error the last answer belongs to another moment than the clock shows: never display it. */}
-      {onHandover ? null : ward.error ? null : data ? <WardBoard ward={data} selectedId={view.bed} onSelect={selectBed} /> : <BoardSkeleton />}
+      {onHandover || doctor ? null : ward.error ? null : data ? <WardBoard ward={data} selectedId={view.bed} onSelect={selectBed} /> : <BoardSkeleton />}
 
-      {!onHandover && !ward.error && (
+      {!onHandover && !doctor && !ward.error && (
         <section className="detail" aria-label={t.observations}>
           {patient.error && !expired ? (
             <div className="alert" role="alert">
@@ -313,7 +424,17 @@ export function App() {
               shiftStart={data.shiftStart}
               shiftEnd={data.shiftEnd}
               actions={
-                trySession && patient.data.patient.id === trySession.patientId ? (
+                shiftId ? (
+                  <BedsidePanel
+                    shiftId={shiftId}
+                    patientId={patient.data.patient.id}
+                    bedLabel={bedLabel(patient.data.patient.bed, patient.data.patient.id)}
+                    name={patient.data.patient.name}
+                    scale={patient.data.patient.spO2Scale}
+                    state={patient.data.escalation}
+                    onChanged={bump}
+                  />
+                ) : trySession && patient.data.patient.id === trySession.patientId ? (
                   <ActionPanel
                     patientName={patient.data.patient.name}
                     bedLabel={bedLabel(patient.data.patient.bed, patient.data.patient.id)}
