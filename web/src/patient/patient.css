@@ -157,9 +157,17 @@
   border-collapse: collapse;
   width: 100%;
   min-width: 640px;
-  font-size: 0.86rem;
-  font-family: var(--f-data);
+  font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
+}
+
+.patient td,
+.patient tbody th {
+  font-family: var(--f-data);
+}
+
+.patient td[data-text] {
+  font-family: var(--f-body);
 }
 
 .patient th,
@@ -172,7 +180,7 @@
 
 .patient thead th {
   font-family: var(--f-body);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--muted);
@@ -204,7 +212,7 @@
 }
 
 .patient td .sub {
-  font-size: 0.7em;
+  font-size: 0.78em;
   font-weight: 700;
   margin-left: 2px;
 }

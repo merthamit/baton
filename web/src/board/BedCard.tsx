@@ -33,11 +33,24 @@ function trendText(bed: BedSummary, t: Messages): string | null {
   return change > 0 ? t.trendUp(change, hours) : change < 0 ? t.trendDown(change, hours) : t.trendFlat;
 }
 
-function driverText(bed: BedSummary, parameter: News2Parameter, t: Messages): string {
+/** "Resp 22 +2": the label in the body face, the reading and points as figures. */
+function Driver({ bed, parameter, t }: { bed: BedSummary; parameter: News2Parameter; t: Messages }) {
   const latest = bed.latest!;
   const reading = readingOf(parameter, latest.input, t);
   const points = latest.subScores[subScoreKey(parameter)] ?? 0;
-  return `${parameterLabel(parameter, t)}${reading ? ` ${reading}` : ''} +${points}`;
+  return (
+    <span className="driver">
+      {parameterLabel(parameter, t)}
+      {reading && (
+        <>
+          {' '}
+          {/* Air or oxygen is a word, not a figure: it stays in the body face. */}
+          <span className={parameter === 'SupplementalOxygen' ? undefined : 'fig'}>{reading}</span>
+        </>
+      )}{' '}
+      <span className="pts">+{points}</span>
+    </span>
+  );
 }
 
 /** The 4B nurse card: why the score is what it is, whether observations are late, and who has been called. */
@@ -84,7 +97,7 @@ export function BedCard({ bed, selected, onSelect }: BedCardProps) {
             <span className="risk" id={ids.risk}>
               {riskText(latest, t)}
             </span>
-            {trend && <span className="trend mono">{trend}</span>}
+            {trend && <span className="trend">{trend}</span>}
           </span>
         </span>
       ) : (
@@ -110,9 +123,7 @@ export function BedCard({ bed, selected, onSelect }: BedCardProps) {
               <>
                 <span className="visually-hidden">{t.raisedBy}: </span>
                 {bed.drivers.slice(0, 3).map((p) => (
-                  <span key={p} className="driver mono">
-                    {driverText(bed, p, t)}
-                  </span>
+                  <Driver key={p} bed={bed} parameter={p} t={t} />
                 ))}
               </>
             ) : (
@@ -140,13 +151,13 @@ export function BedCard({ bed, selected, onSelect }: BedCardProps) {
           </span>
         )}
         {latest && !overdue && bed.nextDue && (
-          <span className="due mono">
+          <span className="due">
             <Icon name="clock" />
             <span>{t.nextObs(clock(bed.nextDue))}</span>
           </span>
         )}
         {latest?.response === 'EmergencyResponse' && <span className="due continuous">{t.continuous}</span>}
-        {latest && <span className="last mono">{t.lastObs(clock(latest.at))}</span>}
+        {latest && <span className="last">{t.lastObs(clock(latest.at))}</span>}
       </span>
     </button>
   );

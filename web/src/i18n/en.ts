@@ -12,7 +12,7 @@ export const en = {
 
   timeLabel: 'Ward time',
   timeHint: 'Cards show what the nurse sees at this moment: last observations, who was called, the next set due.',
-  dataSource: (source: string) => `Data source: ${source}`,
+  dataSource: (source: string): string => (source === 'Hapi' ? 'Data: synthetic ward on the FHIR server' : 'Data: synthetic ward, generated in memory'),
 
   bed: (bed: string) => `Bed ${bed}`,
   age: (years: number) => `${years}`,

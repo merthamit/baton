@@ -12,7 +12,7 @@ export const tr: Messages = {
 
   timeLabel: 'Servis saati',
   timeHint: 'Kartlar hemşirenin bu anda gördüğünü gösterir: son ölçüm, kim çağrıldı, sıradaki ölçüm.',
-  dataSource: (source: string) => `Veri kaynağı: ${source}`,
+  dataSource: (source: string): string => (source === 'Hapi' ? 'Veri: FHIR sunucusundaki sentetik servis' : 'Veri: bellekte üretilen sentetik servis'),
 
   bed: (bed: string) => `Yatak ${bed}`,
   age: (years: number) => `${years}`,

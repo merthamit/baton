@@ -26,7 +26,11 @@ export function App() {
     }
   }, [view]);
 
-  const selectBed = useCallback((bed: string) => setView((v) => ({ ...v, bed })), []);
+  const selectBed = useCallback((bed: string) => {
+    setView((v) => ({ ...v, bed }));
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    document.querySelector('.detail')?.scrollIntoView?.({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+  }, []);
   const setAt = useCallback((at: string) => setView((v) => ({ ...v, at })), []);
   const data = ward.data;
 
@@ -52,7 +56,7 @@ export function App() {
         <section className="controls" aria-label={t.timeLabel}>
           <TimeControl shiftStart={data.shiftStart} shiftEnd={data.shiftEnd} at={view.at ?? data.at} onChange={setAt} />
           <p className="hint muted">{t.timeHint}</p>
-          <p className="source muted mono">{t.dataSource(data.source)}</p>
+          <p className="source muted">{t.dataSource(data.source)}</p>
         </section>
       )}
 

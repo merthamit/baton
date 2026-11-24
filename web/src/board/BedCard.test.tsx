@@ -61,10 +61,8 @@ describe('BedCard content', () => {
 
   it('lists at most three raising parameters with their readings', () => {
     card(bed());
-    expect(screen.getByText('Resp 22 +2')).toBeInTheDocument();
-    expect(screen.getByText('SpO₂ 95% +1')).toBeInTheDocument();
-    expect(screen.getByText('Systolic 109 +1')).toBeInTheDocument();
-    expect(screen.queryByText(/Pulse 103/)).toBeNull();
+    const drivers = [...document.querySelectorAll('.driver')].map((d) => d.textContent);
+    expect(drivers).toEqual(['Resp 22 +2', 'SpO₂ 95% +1', 'Systolic 109 +1']);
   });
 
   it('says all parameters are normal when nothing raises the score', () => {

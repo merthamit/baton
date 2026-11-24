@@ -42,7 +42,7 @@ export function ObservationTable({ points, scale2 }: { points: ScorePoint[]; sca
               {columns.map((c) => {
                 const sub = p.subScores[subScoreKey(c)];
                 return (
-                  <td key={c} data-sub={sub ?? 'none'}>
+                  <td key={c} data-sub={sub ?? 'none'} data-text={c === 'SupplementalOxygen' || undefined}>
                     <span>{readingOf(c, p.input, t) ?? '—'}</span>
                     {sub !== null && sub > 0 && <sup className="sub">+{sub}</sup>}
                   </td>

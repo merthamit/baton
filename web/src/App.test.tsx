@@ -75,6 +75,29 @@ describe('App patient panel', () => {
   });
 });
 
+describe('App selection', () => {
+  it('brings the patient screen into view when a bed is chosen', async () => {
+    route({
+      '/api/ward': () => respond(200, ward(beds)),
+      '/api/patients/synthetic-02': () => respond(200, series('synthetic-02', '02', 'Ayşe K.')),
+    });
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    renderIn(<App />);
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bed 02/ }));
+
+    expect(scroll).toHaveBeenCalled();
+  });
+
+  it('names the data source in plain words', async () => {
+    route({ '/api/ward': () => respond(200, ward(beds)) });
+    renderIn(<App />);
+
+    expect(await screen.findByText('Data: synthetic ward, generated in memory')).toBeInTheDocument();
+  });
+});
+
 describe('App ward errors', () => {
   it('hides cards from an earlier moment when the new moment fails', async () => {
     let wardCalls = 0;
