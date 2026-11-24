@@ -7,6 +7,10 @@ import '@fontsource/ibm-plex-mono/600.css';
 import './styles/tokens.css';
 import { App } from './App';
 import { LanguageProvider } from './i18n/LanguageProvider';
+import { readTheme } from './ui/ThemeToggle';
+
+// The saved theme before the first paint, so the page never flashes the other one.
+document.documentElement.dataset.theme = readTheme();
 
 const root = document.getElementById('root');
 if (!root) {

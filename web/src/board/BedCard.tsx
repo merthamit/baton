@@ -71,6 +71,7 @@ export function BedCard({ bed, selected, onSelect }: BedCardProps) {
       type="button"
       className="bed"
       data-tier={tier ?? 'none'}
+      data-risk={latest?.risk ?? undefined}
       data-overdue={overdue || undefined}
       aria-pressed={selected}
       aria-labelledby={`${ids.title} ${ids.score} ${ids.risk} ${ids.due}`}

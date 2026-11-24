@@ -1,0 +1,280 @@
+/* Page frame (redesign, week 10): a slim synthetic-data strip, the app bar (ward, Board | Handover, live link, language,
+   theme), the mode bar (Watch | Try | Shift and what the mode does), the ward summary, then the workspace: beds and,
+   on wide screens, the selected patient beside them. */
+
+/* Full-bleed without overflow: the strip's own box stays in the column, its colour spreads to the window edges. */
+.synthetic-strip {
+  margin: -20px 0 0;
+  padding: 6px 0;
+  background: var(--strip-bg);
+  box-shadow: 0 0 0 100vmax var(--strip-bg);
+  clip-path: inset(0 -100vmax);
+  color: var(--strip-ink);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.synthetic-strip strong {
+  font-weight: 700;
+}
+
+.synthetic-strip span {
+  opacity: 0.85;
+}
+
+.appbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 24px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.appbar .brand {
+  margin-right: 0;
+}
+
+.appbar h1 {
+  font-size: 1.35rem;
+  letter-spacing: -0.01em;
+}
+
+.tabs {
+  margin-right: auto;
+}
+
+/* Board | Handover read as the page's two places, so they are larger than the tools around them. */
+.seg-tabs button {
+  min-height: 40px;
+  padding: 8px 18px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.appbar-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.seg-small button {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 0.82rem;
+}
+
+.live-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.live-link .live-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.live-link[data-status='open'] .live-dot {
+  background: var(--ok);
+  box-shadow: 0 0 0 3px var(--ok-bg);
+}
+
+.live-link[data-status='closed'] {
+  color: var(--bad);
+}
+
+.live-link[data-status='closed'] .live-dot {
+  background: var(--bad);
+}
+
+/* Watch | Try | Shift with one plain sentence on what the current mode does. */
+.modebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.modebar .seg button {
+  min-height: 38px;
+  padding: 6px 16px;
+  font-weight: 700;
+}
+
+.mode-hint {
+  margin: 0;
+  max-width: 70ch;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.modebar .reason {
+  flex-basis: 100%;
+}
+
+/* The ward at a glance. */
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  padding: 10px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.summary-total {
+  margin: 0;
+  font-weight: 700;
+}
+
+.summary ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.summary li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px 5px 10px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.summary li[data-tone='bad'] {
+  background: var(--bad-bg);
+  color: var(--bad);
+  font-weight: 700;
+}
+
+.summary li[data-tone='warn'] {
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-weight: 700;
+}
+
+.summary-mark {
+  display: inline-flex;
+}
+
+.summary-mark .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.summary-n {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+/* Beds with the selected patient beside them on wide screens; stacked below on narrow ones. */
+.workspace {
+  display: grid;
+  gap: 18px;
+  align-items: start;
+}
+
+@media (min-width: 1200px) {
+  .workspace[data-detail='open'] {
+    grid-template-columns: minmax(0, 1fr) minmax(440px, 40%);
+  }
+
+  .workspace[data-detail='open'] > .detail {
+    position: sticky;
+    top: 12px;
+    max-height: calc(100vh - 24px);
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .workspace[data-detail='open'] .board {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));
+  }
+
+  /* In the side panel the patient's chart, chain and table stack in one column. */
+  .workspace[data-detail='open'] .patient-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .appbar {
+    gap: 10px 12px;
+  }
+
+  .tabs {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .seg-tabs {
+    display: flex;
+  }
+
+  .seg-tabs button {
+    flex: 1;
+  }
+
+  .synthetic-strip span {
+    display: none;
+  }
+
+  .appbar h1 {
+    font-size: 1.1rem;
+  }
+
+  .appbar-tools {
+    flex-basis: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .appbar-tools .seg button {
+    min-height: 34px;
+    padding: 4px 10px;
+    font-size: 0.82rem;
+  }
+
+  .live-link {
+    font-size: 0;
+    gap: 0;
+  }
+
+  .modebar .seg {
+    display: flex;
+    width: 100%;
+  }
+
+  .modebar .seg button {
+    flex: 1;
+  }
+
+  .controls .hint,
+  .controls .source {
+    display: none;
+  }
+
+  .summary {
+    padding: 10px;
+  }
+
+  .summary li {
+    font-size: 0.82rem;
+    padding: 4px 10px 4px 8px;
+  }
+}

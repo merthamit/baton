@@ -11,6 +11,11 @@
   font-size: 1.05rem;
 }
 
+.shift-clock .live-dot,
+.live-dot {
+  flex: none;
+}
+
 .shift-clock .mono {
   font-family: var(--f-data);
   font-size: 1.25rem;
@@ -101,7 +106,7 @@ dialog.confirm .obs-field {
 }
 
 .obs-sub[data-score='2'] {
-  color: var(--mid);
+  color: var(--warn);
   font-weight: 700;
 }
 
@@ -120,8 +125,8 @@ dialog.confirm .obs-field {
 }
 
 .obs-result[data-tier='2'] {
-  border-color: var(--mid);
-  background: var(--mid-bg);
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
 }
 
 .obs-result[data-tier='3'] {
@@ -196,18 +201,18 @@ dialog.confirm .obs-field {
   display: grid;
   gap: 8px;
   padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-left-width: 6px;
+  border: 2px solid var(--line);
   border-radius: 12px;
   background: var(--panel);
 }
 
 .doctor-call[data-tier='2'] {
-  border-left-color: var(--mid);
+  border-color: var(--warn-line);
 }
 
 .doctor-call[data-tier='3'] {
-  border-left-color: var(--bad);
+  border-color: var(--bad);
+  background: var(--bad-tint);
 }
 
 .doctor-head {

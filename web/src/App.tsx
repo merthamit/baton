@@ -8,6 +8,8 @@ import { TimeControl } from './board/TimeControl';
 import { HandoverList } from './handover/HandoverList';
 import { SbarPanel } from './handover/SbarPanel';
 import { LanguageToggle, useT } from './i18n/LanguageProvider';
+import { ThemeToggle } from './ui/ThemeToggle';
+import { WardSummary } from './board/WardSummary';
 import { ActionPanel } from './patient/ActionPanel';
 import { PatientDetail } from './patient/PatientDetail';
 import type { DialogResult } from './ui/ConfirmDialog';
@@ -21,6 +23,7 @@ import { ShiftBar } from './shift/ShiftBar';
 import './shift/shift.css';
 import { clock } from './time';
 import './board/board.css';
+import './board/layout.css';
 
 /** The API's answer for a Try session it no longer has (see TryOverlay.Expired). */
 function isSessionGone(e: unknown): boolean {
@@ -270,7 +273,10 @@ export function App() {
 
   return (
     <div className="wrap">
-      <header className="top">
+      <p className="synthetic-strip">
+        <strong>{t.syntheticNotice}</strong> <span>{t.syntheticDetail}</span>
+      </p>
+      <header className="appbar">
         <div className="brand">
           <svg className="mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
             <path d="M5 19 19 5" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" />
@@ -280,51 +286,56 @@ export function App() {
             {t.wardName} <span className="muted">· {t.boardTitle}</span>
           </h1>
         </div>
-        <p className="notice">
-          <strong>{t.syntheticNotice}</strong>
-        </p>
-        <div className="seg" role="group" aria-label={t.viewLabel}>
-          <button type="button" aria-pressed={!onHandover} onClick={() => showView('board')}>
-            {t.viewBoard}
-          </button>
-          <button type="button" aria-pressed={onHandover} onClick={() => showView('handover')}>
-            {t.viewHandover}
-          </button>
-        </div>
-        <div className="mode">
-          <div className="seg" role="group" aria-label={t.modeLabel}>
-            <button
-              type="button"
-              aria-pressed={!trySession && !shiftId}
-              onClick={() => {
-                reset();
-                if (shiftId) {
-                  leaveShift();
-                }
-              }}
-            >
-              {t.modeWatch}
+        <nav className="tabs" aria-label={t.appNav}>
+          <div className="seg seg-tabs" role="group" aria-label={t.viewLabel}>
+            <button type="button" aria-pressed={!onHandover} onClick={() => showView('board')}>
+              {t.viewBoard}
             </button>
-            {/* Pressed while Try is on: clicking it again never restarts Try (that would drop the actions or switch patient). */}
-            <button
-              type="button"
-              aria-pressed={!!trySession}
-              disabled={!!shiftId || (!trySession && (!tryAvailable || !view.bed))}
-              onClick={() => (trySession ? undefined : void begin())}
-            >
-              {t.modeTry}
-            </button>
-            <button type="button" aria-pressed={!!shiftId} disabled={!shiftId && !tryAvailable} onClick={() => (shiftId ? undefined : void beginShift())}>
-              {t.modeShift}
+            <button type="button" aria-pressed={onHandover} onClick={() => showView('handover')}>
+              {t.viewHandover}
             </button>
           </div>
-          {!trySession && !shiftId && tryReason && <span className="reason">{tryReason}</span>}
+        </nav>
+        <div className="appbar-tools">
+          <p className="live-link" data-status={liveStatus} role="status">
+            <span className="live-dot" aria-hidden="true" />
+            {t.liveLink(liveStatus)}
+          </p>
+          <LanguageToggle />
+          <ThemeToggle />
         </div>
-        <LanguageToggle />
-        <p className="live-link muted" role="status">
-          {t.liveLink(liveStatus)}
-        </p>
       </header>
+
+      <section className="modebar" aria-label={t.modeLabel}>
+          <div className="seg" role="group" aria-label={t.modeLabel}>
+          <button
+            type="button"
+            aria-pressed={!trySession && !shiftId}
+            onClick={() => {
+              reset();
+              if (shiftId) {
+                leaveShift();
+              }
+            }}
+          >
+            {t.modeWatch}
+          </button>
+          {/* Pressed while Try is on: clicking it again never restarts Try (that would drop the actions or switch patient). */}
+          <button
+            type="button"
+            aria-pressed={!!trySession}
+            disabled={!!shiftId || (!trySession && (!tryAvailable || !view.bed))}
+            onClick={() => (trySession ? undefined : void begin())}
+          >
+            {t.modeTry}
+          </button>
+          <button type="button" aria-pressed={!!shiftId} disabled={!shiftId && !tryAvailable} onClick={() => (shiftId ? undefined : void beginShift())}>
+            {t.modeShift}
+          </button>
+        </div>
+        <p className="mode-hint">{shiftId ? t.modeHintShift : trySession ? t.modeHintTry : t.modeHintWatch}</p>
+        {!trySession && !shiftId && tryReason && <span className="reason">{tryReason}</span>}
+      </section>
 
       {tryMessage && (
         <p className="try-message" role="status">
@@ -383,7 +394,7 @@ export function App() {
       {doctor && <DoctorView shiftId={shiftId!} calls={calls.data?.calls} onChanged={bump} />}
 
       {onHandover && !doctor && !ward.error && (
-        <>
+        <div className="workspace" data-detail={view.bed ? 'open' : undefined}>
           {handover.error && !expired ? (
             <div className="alert" role="alert">
               <p>{handover.error instanceof ApiError && handover.error.status === 503 ? t.fhirDown : t.handoverError}</p>
@@ -406,10 +417,13 @@ export function App() {
               );
             })()}
           </section>
-        </>
+        </div>
       )}
 
       {/* After an error the last answer belongs to another moment than the clock shows: never display it. */}
+      {!onHandover && !doctor && !ward.error && data && <WardSummary beds={data.beds} />}
+
+      <div className="workspace" data-detail={!onHandover && !doctor && view.bed ? 'open' : undefined}>
       {onHandover || doctor ? null : ward.error ? null : data ? <WardBoard ward={data} selectedId={view.bed} onSelect={selectBed} /> : <BoardSkeleton />}
 
       {!onHandover && !doctor && !ward.error && (
@@ -454,6 +468,8 @@ export function App() {
           )}
         </section>
       )}
+
+      </div>
 
       <footer className="foot muted">{t.syntheticDetail}</footer>
     </div>

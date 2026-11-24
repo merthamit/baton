@@ -61,7 +61,7 @@ export function DoctorView({ shiftId, calls, onChanged }: DoctorViewProps) {
           const bed = c.bed ? t.bed(c.bed) : c.patientId;
           const step = c.step;
           return (
-            <li key={c.call.callId} className="doctor-call" data-tier={tier ?? undefined} data-passed={c.targetPassed || undefined}>
+            <li key={c.call.callId} className="doctor-call" data-tier={tier ?? undefined} data-risk={c.latest?.risk ?? undefined} data-passed={c.targetPassed || undefined}>
               <div className="doctor-head">
                 <h3>
                   {bed} · {c.name}

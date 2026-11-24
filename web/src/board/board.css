@@ -12,7 +12,7 @@ html {
 }
 
 .wrap {
-  max-width: 1280px;
+  max-width: 1480px;
   margin: 0 auto;
   padding: 20px max(16px, env(safe-area-inset-right)) 44px max(16px, env(safe-area-inset-left));
   display: grid;
@@ -115,17 +115,20 @@ html {
 }
 
 .btn {
-  border: 1px solid currentColor;
+  border: 1px solid var(--line);
   background: var(--panel);
-  border-radius: 7px;
-  padding: 6px 14px;
-  min-height: 36px;
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 7px 14px;
+  min-height: 38px;
   cursor: pointer;
   font-weight: 700;
+  transition: background-color var(--dur) ease-out, border-color var(--dur) ease-out;
 }
 
 .btn:hover {
   background: var(--bg);
+  border-color: var(--muted);
 }
 
 .board {
@@ -181,9 +184,26 @@ html {
   outline-offset: 2px;
 }
 
+/* Medium risk: an orange frame. High risk: a red frame on a faint red card, the one saturated alarm on the board. */
+.bed[data-tier='2'] {
+  border: 2px solid var(--warn-line);
+  padding: 11px 13px;
+}
+
+.bed[data-tier='2'][data-risk='LowMedium'] {
+  border-width: 1px;
+  padding: 12px 14px;
+}
+
 .bed[data-tier='3'] {
   border: 2px solid var(--bad);
+  background: var(--bad-tint);
   padding: 11px 13px;
+}
+
+.bed[data-tier='2']:hover,
+.bed[data-tier='3']:hover {
+  border-color: var(--ink);
 }
 
 .bed-head {
@@ -225,7 +245,7 @@ html {
 }
 
 .score-n {
-  font-size: 2rem;
+  font-size: 2.15rem;
   font-weight: 600;
   line-height: 1;
   color: var(--ink);
@@ -247,8 +267,8 @@ html {
 }
 
 [data-tier='0'] .score {
-  background: var(--ok-bg);
-  color: var(--ok);
+  background: var(--quiet-bg);
+  color: var(--quiet);
 }
 
 [data-tier='1'] .score {
@@ -262,12 +282,30 @@ html {
 }
 
 [data-tier='3'] .score {
-  background: var(--bad-bg);
-  color: var(--bad);
+  background: var(--bad-solid);
+  color: #fff;
+}
+
+[data-tier='3'] .score .score-n {
+  color: #fff;
+}
+
+/* 5–6: solid orange; a single 3 (low–medium) keeps the pale block with an orange outline. */
+[data-risk='Medium'] .score {
+  background: var(--warn-solid);
+  color: #fff;
+}
+
+[data-risk='Medium'] .score .score-n {
+  color: #fff;
+}
+
+[data-risk='LowMedium'] .score {
+  box-shadow: inset 0 0 0 2px var(--warn-line);
 }
 
 [data-tier='0'] .risk {
-  color: var(--ok);
+  color: var(--quiet);
 }
 
 [data-tier='1'] .risk {
@@ -551,8 +589,14 @@ li[data-state='done'] .chain-mark {
   border-color: var(--accent);
 }
 
+.btn.primary:hover {
+  filter: brightness(1.08);
+  background: var(--accent);
+}
+
 .btn.warn {
   color: var(--bad);
+  border-color: var(--bad);
 }
 
 .dialog-backdrop {

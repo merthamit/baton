@@ -267,6 +267,22 @@ export const en = {
   shiftRefusalNoArrival: 'The called clinician has not arrived yet.',
   shiftRefusalAlreadyAssessed: 'This call already has an assessment.',
   shiftRefusalAlreadyPlanned: 'This call already has a plan.',
+
+  sumLabel: 'Ward at a glance',
+  sumBeds: (n: number) => `${n} beds`,
+  sumHigh: 'high risk',
+  sumMedium: 'medium risk',
+  sumOverdue: 'obs overdue',
+  sumWaiting: 'calls waiting',
+  sumConcerns: 'concerns',
+  modeHintWatch: 'Watch: replay the synthetic night. Drag the clock or play it; nothing you do changes the record.',
+  modeHintTry: 'Try: you are the nurse for one bed. Your calls and their timing change how the patient does.',
+  modeHintShift: 'Shift: your own copy of the ward, live. Enter observations as the nurse and answer calls as the doctor.',
+  appNav: 'Main',
+  themeLabel: 'Theme',
+  themeLight: 'Light',
+  themeDark: 'Dark',
+  closeDetail: 'Close patient',
 };
 
 export type Messages = typeof en;
