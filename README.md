@@ -29,7 +29,7 @@ when the numbers look fine, and drafts a handover where every sentence points ba
 | **Escalation chain** | Concern → called → arrived → assessed → plan, time-stamped and stored in FHIR. Response targets from NEWS2 guidance (60 min for 5–6 or a single 3, 30 min for 7+, configurable); when a target passes, Baton suggests the next tier but never calls anyone. Patients and families can raise a concern too. |
 | **SBAR handover** | Rule-based handover built from FHIR data, sickest patient first. Every sentence links to its source, gaps are named instead of filled in, and the incoming nurse's confirmation stores it as a FHIR document. |
 
-Status: **in development.** Done so far: NEWS2 engine, FHIR reading/writing, synthetic ward generator, FHIR server, API, the ward board and the escalation chain, with a Try mode where you play the nurse, and the SBAR handover.
+Status: **in development.** Done so far: NEWS2 engine, FHIR reading/writing, synthetic ward generator, FHIR server, API, the ward board and the escalation chain, with a Try mode where you play the nurse, the SBAR handover, and a live board.
 
 ## How the score is calculated
 
@@ -122,6 +122,24 @@ from the NEWS2 and escalation rules. Each sentence has a *Source* button listing
 record does not hold (no plan, no arrival, an overdue observation) is listed as missing, never guessed. *Taken over*
 asks you to confirm the patient and bed, then stores the handover as a FHIR document. In Try mode the handover can be
 read but not stored. Endpoints: `GET /api/handover?at=…&lang=…` and `POST /api/handover/{patientId}`.
+
+**Live board:** the board listens to `GET /api/live` (Server-Sent Events) and refreshes by itself when something
+changes; the header says whether the live link is on. *Play the shift* runs the ward clock at 1×, 60× or 300× (moving
+the slider pauses it), so the night plays out on the cards. Events only say "this patient changed"; the board then asks
+the API again, which scores as always.
+
+With the FHIR server, Baton writes four FHIR R4 rest-hook `Subscription`s at start-up (vital-sign Observations,
+escalation Tasks, concern Flags, patient/family Communications), and HAPI calls `POST /api/fhir/notify` when one of
+them changes. To see a new measurement turn a card red:
+
+```bash
+docker compose up -d                       # rest-hook subscriptions are enabled in docker-compose.yml
+dotnet run --project src/Baton.Scenarios.Cli -- load --fhir http://localhost:8080/fhir
+dotnet run --project src/Baton.Api --launch-profile hapi
+# open the board at 15:15, then write a new set for bed 03 at 15:10:
+dotnet run --project src/Baton.Scenarios.Cli -- observe --bed 03 --at 2026-11-23T15:10:00+03:00 \
+  --rr 26 --spo2 91 --o2 2 --sbp 95 --hr 118 --temp 38.9 --acvpu A --fhir http://localhost:8080/fhir
+```
 
 The escalation chain is read from FHIR for both data sources. When the API reads from the FHIR server, other events
 (Baton's alerts, notes) are not stored there yet, and the patient screen says so.
