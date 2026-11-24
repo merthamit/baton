@@ -130,4 +130,16 @@ public class ShiftSimulatorTests
         Assert.Contains(bed04.Patient.Measurements, m => Math.Abs(m.Hour - 17.25) < 1e-6);
         Assert.Contains(bed04.Patient.Events, e => e.Kind == ScenarioEventKind.Note && Math.Abs(e.Hour - 17.25) < 1e-6);
     }
+
+    [Fact]
+    public void DoctorAlreadyArrivedOnTheCard_NoAutomaticCallAfterwards()
+    {
+        // Pulse 135 scores 3 from the start (urgent); the card's doctor arrives at hour 0.5, before the first alert's call.
+        var card = Flat(135, new ScenarioEvent(-1, ScenarioEventKind.DoctorArrived, "doctor already on the ward"));
+
+        var p = ShiftSimulator.Run(card, Quiet);
+
+        Assert.DoesNotContain(p.Events, e => e.Kind == ScenarioEventKind.DoctorCalled);
+        Assert.Contains(p.Events, e => e.Kind == ScenarioEventKind.Alert);
+    }
 }

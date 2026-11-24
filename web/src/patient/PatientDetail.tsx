@@ -1,4 +1,4 @@
-import type { PatientSeries } from '../api/types';
+import type { EscalationRecordView, PatientSeries, WardEvent } from '../api/types';
 import { useT } from '../i18n/LanguageProvider';
 import { riskText, shapeOf, tierOf } from '../risk';
 import { clock } from '../time';
@@ -6,8 +6,30 @@ import { Shape } from '../ui/Icon';
 import { ChainPanel } from './ChainPanel';
 import { EventTimeline } from './EventTimeline';
 import { ObservationTable } from './ObservationTable';
-import { ScoreChart } from './ScoreChart';
+import { ScoreChart, type ChartMarker } from './ScoreChart';
 import './patient.css';
+
+/** Chart markers from the escalation records (the assessment shares the arrival's marker) and Baton's alerts. */
+function markersOf(records: EscalationRecordView[], events: WardEvent[]): ChartMarker[] {
+  const fromRecords = records.flatMap<ChartMarker>((r) => {
+    const key = `${r.kind}-${r.at}-${r.by}`;
+    switch (r.kind) {
+      case 'ConcernRaised':
+      case 'PatientOrFamilyConcern':
+        return [{ at: r.at, icon: 'flag', key }];
+      case 'Called':
+        return [{ at: r.at, icon: r.tier === 'CriticalCare' ? 'critical' : 'phone', key }];
+      case 'Arrived':
+        return [{ at: r.at, icon: 'doctor', key }];
+      case 'Planned':
+        return [{ at: r.at, icon: 'drop', key }];
+      default:
+        return [];
+    }
+  });
+  const alerts = events.filter((e) => e.kind === 'Alert').map<ChartMarker>((e) => ({ at: e.at, icon: 'bell', key: `alert-${e.at}` }));
+  return [...fromRecords, ...alerts];
+}
 
 interface PatientDetailProps {
   series: PatientSeries;
@@ -46,7 +68,7 @@ export function PatientDetail({ series, at, shiftStart, shiftEnd }: PatientDetai
         <ScoreChart
           label={t.chartLabel(label, clock(shiftStart), clock(shiftEnd))}
           points={points}
-          events={series.events}
+          markers={markersOf(series.escalationRecords, series.events)}
           at={at}
           shiftStart={shiftStart}
           shiftEnd={shiftEnd}

@@ -47,6 +47,15 @@ public static class ScenarioEscalation
                     records.Add(new Assessed(at, OnCallDoctor, onCall, e.Text));
                     break;
 
+                case ScenarioEventKind.DoctorArrived:
+                    // The doctor was already on the ward (no open call): the call and the arrival share the minute.
+                    onCall = $"call-{bed.PatientId}-{++number}";
+                    arrived = true;
+                    records.Add(new Called(at, ScenarioNurse, onCall, EscalationTier.OnCallDoctor));
+                    records.Add(new Arrived(at, OnCallDoctor, onCall, Simulated: false));
+                    records.Add(new Assessed(at, OnCallDoctor, onCall, e.Text));
+                    break;
+
                 case ScenarioEventKind.TreatmentStarted when onCall is not null && arrived:
                     records.Add(new Planned(at, OnCallDoctor, onCall, e.Text));
                     break;

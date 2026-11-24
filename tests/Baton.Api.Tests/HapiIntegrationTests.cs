@@ -37,8 +37,18 @@ public class HapiIntegrationTests
         var hapiWard = await hapi.GetWardAsync(ShiftStart.AddHours(15.5), CancellationToken.None);
         Assert.Equal(8, hapiWard.Count);
 
+        // After two loads, every bed's chain on the server equals the generated one: nothing old is left behind.
         var source = new HapiVitalSignsSource(client);
-        var chain = await source.GetEscalationAsync("synthetic-02", end, CancellationToken.None);
-        Assert.Contains(chain, r => r is Baton.Core.Escalation.Called);
+        var generated = new InMemoryVitalSignsSource(ShiftStart, 42);
+        foreach (var bed in await memory.GetWardAsync(end, CancellationToken.None))
+        {
+            var expected = await generated.GetEscalationAsync(bed.PatientId, end, CancellationToken.None);
+            var actual = await source.GetEscalationAsync(bed.PatientId, end, CancellationToken.None);
+            Assert.Equal(
+                expected.OrderBy(r => r.At).ThenBy(r => r.GetType().Name),
+                actual.OrderBy(r => r.At).ThenBy(r => r.GetType().Name));
+        }
+
+        Assert.Contains(await source.GetEscalationAsync("synthetic-02", end, CancellationToken.None), r => r is Baton.Core.Escalation.Called);
     }
 }

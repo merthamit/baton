@@ -74,6 +74,34 @@ describe('PatientDetail chart', () => {
   });
 });
 
+describe('PatientDetail chart markers and line', () => {
+  it('draws a marker for each escalation record and for alerts', () => {
+    show(
+      series({
+        escalationRecords: [
+          { at: '2026-11-23T20:15:00+03:00', kind: 'ConcernRaised', by: 'Practitioner/synthetic-nurse', tier: null, text: 'Restless', simulated: null },
+          { at: '2026-11-23T23:19:00+03:00', kind: 'Called', by: 'Practitioner/synthetic-nurse', tier: 'OnCallDoctor', text: null, simulated: null },
+          { at: '2026-11-23T23:40:00+03:00', kind: 'Arrived', by: 'Practitioner/synthetic-oncall', tier: null, text: null, simulated: false },
+          { at: '2026-11-23T23:40:00+03:00', kind: 'Assessed', by: 'Practitioner/synthetic-oncall', tier: null, text: 'Sepsis', simulated: null },
+          { at: '2026-11-24T00:05:00+03:00', kind: 'Planned', by: 'Practitioner/synthetic-oncall', tier: null, text: 'Fluids', simulated: null },
+        ],
+        events: [{ at: '2026-11-23T23:15:00+03:00', kind: 'Alert', text: 'NEWS2 6: urgent review needed' }],
+      }),
+    );
+    const chart = screen.getByRole('img', { name: /NEWS2 over the shift/ });
+    // concern, call, arrival, plan (assessment shares the arrival marker) + the alert
+    expect(chart.querySelectorAll('[data-marker]')).toHaveLength(5);
+  });
+
+  it('carries the last score on to the chosen time', () => {
+    show();
+    const chart = screen.getByRole('img', { name: /NEWS2 over the shift/ });
+    const nowX = chart.querySelector('[data-now]')!.getAttribute('x1');
+    const d = chart.querySelector('path.line')!.getAttribute('d')!;
+    expect(d.trim().split(' ').at(-1)!.replace(/^[LM]/, '').split(',')[0]).toBe(nowX);
+  });
+});
+
 describe('PatientDetail observations', () => {
   it('has one row per score with readings and sub-scores as text', () => {
     show();

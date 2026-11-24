@@ -41,7 +41,7 @@ public class ScenarioEscalationTests
     }
 
     [Fact]
-    public void ArrivalWithoutCall_Skipped()
+    public void ArrivalWithoutCall_RecordsCallAndArrivalTogether()
     {
         var card = new ScenarioCard(
             "lonely", "Arrival without call", "test", SpO2Scale.Scale1,
@@ -50,7 +50,12 @@ public class ScenarioEscalationTests
             null);
         var bed = new WardBed("99", "synthetic-99", "Test", 50, "test", ShiftSimulator.Run(card, CardFidelityTests.Quiet));
 
-        Assert.Empty(ScenarioEscalation.From(bed, Start));
+        var records = ScenarioEscalation.From(bed, Start);
+
+        // The doctor was already on the ward: call and arrival in the same minute, the assessment kept.
+        Assert.Equal([typeof(Called), typeof(Arrived), typeof(Assessed)], records.Select(r => r.GetType()));
+        Assert.Single(records.Select(r => r.At).Distinct());
+        Assert.Equal("came anyway", records.OfType<Assessed>().Single().Text);
     }
 
     [Fact]

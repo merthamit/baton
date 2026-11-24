@@ -58,10 +58,15 @@ public class EscalationApiTests(WebApplicationFactory<Program> factory) : IClass
         Assert.Equal(JsonValueKind.Null, chain.GetProperty("suggestedNextTier").ValueKind);
     }
 
-    [Fact]
-    public async Task NoBed_EverShowsTargetPassedForever()
+    [Theory]
+    [InlineData("8", "0")]
+    [InlineData("30", "0")]
+    [InlineData("8", "3")]
+    [InlineData("30", "3")]
+    public async Task NoBed_EverShowsTargetPassedForever(string beds, string delay)
     {
-        using var doc = JsonDocument.Parse(await ClientWith().GetStringAsync($"/api/ward?at={Uri.EscapeDataString(At(24).ToString("O"))}"));
+        var client = ClientWith(("Baton:Beds", beds), ("Baton:TreatmentDelayHours", delay));
+        using var doc = JsonDocument.Parse(await client.GetStringAsync($"/api/ward?at={Uri.EscapeDataString(At(24).ToString("O"))}"));
 
         Assert.All(doc.RootElement.GetProperty("beds").EnumerateArray(), b =>
             Assert.False(b.GetProperty("escalation").GetProperty("targetPassed").GetBoolean(), b.GetProperty("bed").GetString()));

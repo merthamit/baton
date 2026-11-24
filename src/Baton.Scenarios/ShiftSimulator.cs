@@ -76,7 +76,12 @@ public static class ShiftSimulator
             {
                 alerted = true;
                 events.Add(new ScenarioEvent(hour, ScenarioEventKind.Alert, $"NEWS2 {score.Total}: urgent review needed"));
-                events.Add(new ScenarioEvent(hour + DoctorCallDelayHours, ScenarioEventKind.DoctorCalled, "Nurse called the on-call doctor"));
+                // No call when the card's doctor is already there (a card started earlier in the shift can put the
+                // arrival before the first alert); otherwise the call would never be answered.
+                if (!events.Any(e => e.Kind == ScenarioEventKind.DoctorArrived && e.Hour <= hour + DoctorCallDelayHours))
+                {
+                    events.Add(new ScenarioEvent(hour + DoctorCallDelayHours, ScenarioEventKind.DoctorCalled, "Nurse called the on-call doctor"));
+                }
             }
 
             if (score.Risk == RiskLevel.High && !criticalCareCalled)

@@ -45,6 +45,17 @@ public class EscalationChainTests
     }
 
     [Fact]
+    public void HighScoreWithoutAnyCall_SuggestsCriticalCare()
+    {
+        // Ruling: at 7+ with nobody called yet, the reminder to call critical care is exactly what the nurse needs.
+        var state = EscalationChain.At([], Scores, T(24, 16));
+
+        Assert.Equal(EscalationStep.None, state.Step);
+        Assert.Equal(EscalationTier.CriticalCare, state.SuggestedNextTier);
+        Assert.False(state.TargetPassed);
+    }
+
+    [Fact]
     public void TargetFor_Medium60_High30_LowNone()
     {
         var options = new EscalationOptions();
