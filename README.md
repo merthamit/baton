@@ -27,9 +27,9 @@ when the numbers look fine, and drafts a handover where every sentence points ba
 | **NEWS2 engine** | Calculates the National Early Warning Score 2 exactly as published by the Royal College of Physicians (2017). Pure, versioned function; every band boundary is tested. SpO2 Scale 2 only with a recorded clinical decision. |
 | **Ward board** | Bed-by-bed nurse cards: score with shape, risk words and trend (colour is never the only signal), the parameters raising it, concern flag, who was called and how long they have been waited for, and the next observation or how late it is. Patient view with the NEWS2 chart, events and every observation set. English and Turkish. |
 | **Escalation chain** | Concern → called → arrived → assessed → plan, time-stamped and stored in FHIR. Response targets from NEWS2 guidance (60 min for 5–6 or a single 3, 30 min for 7+, configurable); when a target passes, Baton suggests the next tier but never calls anyone. Patients and families can raise a concern too. |
-| **SBAR handover** | Rule-based handover draft built from FHIR data. Every sentence links to its source. Nothing is final until a nurse confirms it. |
+| **SBAR handover** | Rule-based handover built from FHIR data, sickest patient first. Every sentence links to its source, gaps are named instead of filled in, and the incoming nurse's confirmation stores it as a FHIR document. |
 
-Status: **in development.** Done so far: NEWS2 engine, FHIR reading/writing, synthetic ward generator, FHIR server, API, the ward board and the escalation chain, with a Try mode where you play the nurse.
+Status: **in development.** Done so far: NEWS2 engine, FHIR reading/writing, synthetic ward generator, FHIR server, API, the ward board and the escalation chain, with a Try mode where you play the nurse, and the SBAR handover.
 
 ## How the score is calculated
 
@@ -67,6 +67,10 @@ algorithm version `RCP-NEWS2-2017`). Every band boundary of the RCP chart has it
 - **Escalation chain:** a nurse's concern is a `Flag`, a patient's or family's concern a `Communication`, each call a
   `Task` (status follows the chain; the response target in `restriction.period.end`, the NEWS2 Observation as its
   `focus`), and every resource has a `Provenance` (who, when).
+- **Handover:** a confirmed SBAR is a document `Bundle`: the `Composition` first (LOINC 28651-8, the outgoing nurse as
+  author, the incoming nurse as `professional` attester, one section per SBAR part with its sources as entries), then
+  every resource it references as it stood at the handover moment. A `Provenance` beside it records Baton as the
+  draft's assembler.
 - **Validation:** every generated example passes the Firely validator in the tests and the official HL7
   validator in CI.
 
@@ -110,6 +114,14 @@ call a doctor (on-call, senior or critical care), record the assessment and plan
 patient and bed. The doctor's arrival is simulated, and a late call delays treatment so the patient gets worse on the
 chart (calling earlier than the scenario does not make them better than its timely course). Endpoints: `POST /api/try`,
 `POST /api/try/{id}/actions`, `DELETE /api/try/{id}`, and `?try={id}` on the ward and patient endpoints.
+
+**Handover** (*Board | Handover* in the header): the ward ranked sickest first, then by what the record is missing.
+Open a patient to read their SBAR for the last 12 hours: the current score and the shift's highest, what drives it,
+concerns, every call with its arrival, assessment and plan, the next observation and one "if this, then that" step taken
+from the NEWS2 and escalation rules. Each sentence has a *Source* button listing the FHIR records behind it; anything the
+record does not hold (no plan, no arrival, an overdue observation) is listed as missing, never guessed. *Taken over*
+asks you to confirm the patient and bed, then stores the handover as a FHIR document. In Try mode the handover can be
+read but not stored. Endpoints: `GET /api/handover?at=…&lang=…` and `POST /api/handover/{patientId}`.
 
 The escalation chain is read from FHIR for both data sources. When the API reads from the FHIR server, other events
 (Baton's alerts, notes) are not stored there yet, and the patient screen says so.
