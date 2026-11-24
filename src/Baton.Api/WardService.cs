@@ -40,7 +40,14 @@ public sealed record BedSummary(
     bool ConcernsKnown,
     EscalationState Escalation,
     bool EventsAvailable,
-    IReadOnlyList<WardEvent> Events);
+    IReadOnlyList<WardEvent> Events,
+    NotDoneView? NotDone = null);
+
+/// <summary>
+/// The latest "not done" since the last set: the reason the set due was not taken. <see cref="Urgent"/>: no reading
+/// could be obtained, which RCP NEWS2 treats as needing an immediate response.
+/// </summary>
+public sealed record NotDoneView(DateTimeOffset At, NotDoneReason Reason, string? Note, bool Urgent);
 
 /// <summary>One escalation record for the patient's timeline: <c>Kind</c> is the record type (ConcernRaised, Called, …).</summary>
 public sealed record EscalationRecordView(DateTimeOffset At, string Kind, string By, EscalationTier? Tier, string? Text, bool? Simulated)
@@ -50,6 +57,8 @@ public sealed record EscalationRecordView(DateTimeOffset At, string Kind, string
         ConcernRaised c => new(c.At, nameof(ConcernRaised), c.By, null, c.Note, null),
         PatientOrFamilyConcern p => new(p.At, nameof(PatientOrFamilyConcern), p.By, null, p.Text, null),
         Called c => new(c.At, nameof(Called), c.By, c.Tier, null, null),
+        Acknowledged a => new(a.At, nameof(Acknowledged), a.By, null, null, null),
+        ObservationNotDone n => new(n.At, nameof(ObservationNotDone), n.By, null, n.Note is null ? n.Reason.ToString() : $"{n.Reason}: {n.Note}", null),
         Arrived a => new(a.At, nameof(Arrived), a.By, null, null, a.Simulated),
         Assessed a => new(a.At, nameof(Assessed), a.By, null, a.Text, null),
         Planned p => new(p.At, nameof(Planned), p.By, null, p.Text, null),
@@ -107,7 +116,8 @@ public sealed class WardService(IVitalSignsSource source, EscalationOptions? esc
                 true,
                 Chain(records, points, at),
                 events.Available,
-                NonChain(events.Events, language)));
+                NonChain(events.Events, language),
+                NotDoneSince(latest, records)));
         }
 
         return result;
@@ -190,6 +200,11 @@ public sealed class WardService(IVitalSignsSource source, EscalationOptions? esc
         var snapshot = new Handover.HandoverSnapshot(patient, observations, records, points.Select(p => new ScoreMark(p.At, p.Risk)).ToList(), options);
         return (input, snapshot);
     }
+
+    private static NotDoneView? NotDoneSince(ScorePoint? latest, IReadOnlyList<EscalationRecord> records) =>
+        records.OfType<ObservationNotDone>().Where(n => latest is null || n.At > latest.At).OrderBy(n => n.At).LastOrDefault() is { } last
+            ? new NotDoneView(last.At, last.Reason, last.Note, last.Reason == NotDoneReason.CouldNotBeObtained)
+            : null;
 
     /// <summary>Next observation due (<see cref="MonitoringSchedule"/>, every concern counts) and minutes overdue.</summary>
     private static (DateTimeOffset? NextDue, int? Overdue) Due(ScorePoint? latest, IReadOnlyList<EscalationRecord> records, DateTimeOffset at)

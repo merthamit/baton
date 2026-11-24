@@ -42,6 +42,7 @@ builder.Services.AddSingleton(sp =>
     return new BatonOptionsSnapshot(options.ShiftStart, options.Seed, options.TreatmentDelayHours);
 });
 builder.Services.AddSingleton<TrySessions>();
+builder.Services.AddSingleton<Baton.Api.Shift.WardShifts>();
 builder.Services.AddSingleton<Baton.Api.Live.WardChangeFeed>();
 builder.Services.AddHostedService<Baton.Api.Live.LiveSubscriptionRegistrar>();
 builder.Services.AddSingleton<Baton.Api.Handover.IHandoverStore>(sp =>
@@ -83,7 +84,7 @@ app.MapGet("/health", () => Results.Ok(new
     note = "Synthetic data. Not a medical device.",
 }));
 
-app.MapGet("/api/ward", async (string? at, string? lang, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, WardService ward, TrySessions tries, CancellationToken ct) =>
+app.MapGet("/api/ward", async (string? at, string? lang, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, string? shift, WardService ward, TrySessions tries, Baton.Api.Shift.WardShifts shifts, CancellationToken ct) =>
 {
     if (!TimeQuery.TryParse(at, settings.DefaultAt, out var moment, out var error))
     {
@@ -96,13 +97,21 @@ app.MapGet("/api/ward", async (string? at, string? lang, [Microsoft.AspNetCore.M
         return tryProblem;
     }
 
-    moment = moment.ToOffset(settings.ShiftStart.Offset); // answer in ward time, whatever offset was sent
+    // A shift answers at its own running ward clock, whatever `at` says.
+    var (shiftOverlay, shiftNow, shiftProblem) = Baton.Api.Shift.ShiftEndpoints.Resolve(shift, shifts, source);
+    if (shiftProblem is not null)
+    {
+        return shiftProblem;
+    }
+
+    overlay ??= shiftOverlay;
+    moment = (shiftNow ?? moment).ToOffset(settings.ShiftStart.Offset); // answer in ward time, whatever offset was sent
 
     return await FhirServerProblem.Guard(async () =>
         Results.Ok(new WardResponse(moment, settings.SourceName, settings.ShiftStart, settings.ShiftStart.AddHours(24), await ward.GetWardAsync(moment, ct, Language.From(lang), overlay))));
 });
 
-app.MapGet("/api/patients/{id}", async (string id, string? at, string? lang, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, WardService ward, TrySessions tries, CancellationToken ct) =>
+app.MapGet("/api/patients/{id}", async (string id, string? at, string? lang, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, string? shift, WardService ward, TrySessions tries, Baton.Api.Shift.WardShifts shifts, CancellationToken ct) =>
 {
     if (!TimeQuery.TryParse(at, settings.DefaultAt, out var moment, out var error))
     {
@@ -115,7 +124,15 @@ app.MapGet("/api/patients/{id}", async (string id, string? at, string? lang, [Mi
         return tryProblem;
     }
 
-    moment = moment.ToOffset(settings.ShiftStart.Offset); // answer in ward time, whatever offset was sent
+    // A shift answers at its own running ward clock, whatever `at` says.
+    var (shiftOverlay, shiftNow, shiftProblem) = Baton.Api.Shift.ShiftEndpoints.Resolve(shift, shifts, source);
+    if (shiftProblem is not null)
+    {
+        return shiftProblem;
+    }
+
+    overlay ??= shiftOverlay;
+    moment = (shiftNow ?? moment).ToOffset(settings.ShiftStart.Offset); // answer in ward time, whatever offset was sent
 
     return await FhirServerProblem.Guard(async () =>
         await ward.GetPatientAsync(id, moment, ct, Language.From(lang), overlay) is { } series ? Results.Ok(series) : Results.NotFound());
@@ -208,10 +225,11 @@ app.MapPost("/api/fhir/notify", Notify);
 app.MapMethods("/api/fhir/notify/{**path}", ["POST", "PUT", "DELETE"], Notify);
 
 // Live board: "something changed, refetch" as Server-Sent Events (decision 18A).
-app.MapGet("/api/live", ([Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, Baton.Api.Live.WardChangeFeed feed, CancellationToken ct) =>
-    TypedResults.ServerSentEvents(feed.Stream(TimeSpan.FromSeconds(25), string.IsNullOrEmpty(trySession) ? null : trySession, ct)));
+// A Try session or a shift sees its own changes (never another's) and the shared ones.
+app.MapGet("/api/live", ([Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, string? shift, Baton.Api.Live.WardChangeFeed feed, CancellationToken ct) =>
+    TypedResults.ServerSentEvents(feed.Stream(TimeSpan.FromSeconds(25), !string.IsNullOrEmpty(trySession) ? trySession : string.IsNullOrEmpty(shift) ? null : shift, ct)));
 
-app.MapGet("/api/handover", async (string? at, string? lang, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, Baton.Api.Handover.HandoverService handover, TrySessions tries, CancellationToken ct) =>
+app.MapGet("/api/handover", async (string? at, string? lang, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, string? shift, Baton.Api.Handover.HandoverService handover, TrySessions tries, Baton.Api.Shift.WardShifts shifts, CancellationToken ct) =>
 {
     if (!TimeQuery.TryParse(at, settings.DefaultAt, out var moment, out var error))
     {
@@ -224,7 +242,15 @@ app.MapGet("/api/handover", async (string? at, string? lang, [Microsoft.AspNetCo
         return tryProblem;
     }
 
-    moment = moment.ToOffset(settings.ShiftStart.Offset);
+    // A shift answers at its own running ward clock, whatever `at` says.
+    var (shiftOverlay, shiftNow, shiftProblem) = Baton.Api.Shift.ShiftEndpoints.Resolve(shift, shifts, source);
+    if (shiftProblem is not null)
+    {
+        return shiftProblem;
+    }
+
+    overlay ??= shiftOverlay;
+    moment = (shiftNow ?? moment).ToOffset(settings.ShiftStart.Offset);
 
     return await FhirServerProblem.Guard(async () =>
         Results.Ok(await handover.GetAsync(moment, Language.From(lang), overlay, canConfirm: overlay is null, ct)));
@@ -264,6 +290,8 @@ app.MapPost("/api/handover/{patientId}", async (string patientId, HandoverConfir
         };
     });
 });
+
+Baton.Api.Shift.ShiftEndpoints.Map(app, source);
 
 GC.KeepAlive(source);
 app.Run();
