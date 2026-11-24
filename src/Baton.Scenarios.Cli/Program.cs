@@ -5,6 +5,31 @@ using Hl7.Fhir.Rest;
 // Synthetic ward for Baton (8 story beds by default, up to 30).
 //   Write JSON:       dotnet run --project src/Baton.Scenarios.Cli -- [--seed 42] [--delay 0] [--noise 1] [--beds 8] [--out artifacts/ward.json]
 //   Load into FHIR:   dotnet run --project src/Baton.Scenarios.Cli -- load --fhir http://localhost:8080/fhir [--seed 42] [--delay 0] [--beds 8]
+//   New observation:  dotnet run --project src/Baton.Scenarios.Cli -- observe --bed 02 --at 2026-11-23T15:10:00+03:00
+//                       --rr 26 --spo2 91 --o2 2 --sbp 95 --hr 118 --temp 38.9 --acvpu A --fhir http://localhost:8080/fhir
+if (args.Length > 0 && args[0] == "observe")
+{
+    var (request, problem) = ObserveCommand.Parse(args[1..]);
+    if (request is null)
+    {
+        Console.Error.WriteLine(problem);
+        return 1;
+    }
+
+    try
+    {
+        await WardFhirLoader.CreateClient(request.FhirBaseUrl).TransactionAsync(ObserveCommand.ToBundle(request));
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Writing to {request.FhirBaseUrl} failed: {ex.Message}");
+        return 1;
+    }
+
+    Console.WriteLine($"Wrote 7 observations for {request.PatientId} at {request.At:O}");
+    return 0;
+}
+
 var load = args.Length > 0 && args[0] == "load";
 var options = load ? args[1..] : args;
 

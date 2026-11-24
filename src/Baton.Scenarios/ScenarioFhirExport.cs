@@ -24,17 +24,25 @@ public static class ScenarioFhirExport
     {
         ArgumentNullException.ThrowIfNull(bed);
         ArgumentNullException.ThrowIfNull(measurement);
+        return ToObservations(bed.PatientId, measurement.At, measurement.Vitals, string.Create(CultureInfo.InvariantCulture, $"{measurement.Hour * 60:0000}"));
+    }
 
-        var v = measurement.Vitals;
-        var stamp = string.Create(CultureInfo.InvariantCulture, $"{measurement.Hour * 60:0000}");
+    /// <summary>One set of vitals for a patient at a moment; ids are <c>{patientId}-{idStamp}-{suffix}</c>.</summary>
+    public static IReadOnlyList<Observation> ToObservations(string patientId, DateTimeOffset at, VitalSet vitals, string idStamp)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(patientId);
+        ArgumentNullException.ThrowIfNull(vitals);
+        ArgumentException.ThrowIfNullOrEmpty(idStamp);
+
+        var v = vitals;
         Observation Make(string suffix, string code, string display, DataType value) => new()
         {
-            Id = $"{bed.PatientId}-{stamp}-{suffix}",
+            Id = $"{patientId}-{idStamp}-{suffix}",
             Status = ObservationStatus.Final,
             Category = [new CodeableConcept { Coding = [new Coding(CategorySystem, "vital-signs", "Vital Signs")] }],
             Code = new CodeableConcept { Coding = [new Coding(Loinc, code, display)], Text = display },
-            Subject = new ResourceReference($"Patient/{bed.PatientId}"),
-            Effective = new FhirDateTime(measurement.At),
+            Subject = new ResourceReference($"Patient/{patientId}"),
+            Effective = new FhirDateTime(at),
             Value = value,
         };
 
