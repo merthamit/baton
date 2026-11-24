@@ -83,15 +83,25 @@ public static class WardFhirLoader
             await DeleteAllAsync<Provenance>(client, $"target={target}", cancellationToken);
         }
 
-        foreach (var type in new[] { "Task", "Flag", "Communication" })
+        var tasks = TaskDeletionOrder(targets.Where(t => t.StartsWith("Task/", StringComparison.Ordinal)));
+        foreach (var target in tasks.Concat(targets.Where(t => !t.StartsWith("Task/", StringComparison.Ordinal))))
         {
-            foreach (var target in targets.Where(t => t.StartsWith(type + "/", StringComparison.Ordinal)))
-            {
-                await client.DeleteAsync(target, ct: cancellationToken);
-            }
+            await client.DeleteAsync(target, ct: cancellationToken);
         }
 
         return targets.Count;
+    }
+
+    /// <summary>
+    /// Call Tasks, latest call first: a later call's Task is <c>partOf</c> the earlier one, so the earlier one can only be
+    /// deleted after it. Call ids end in their sequence number (<c>call-{patient}-{n}</c>).
+    /// </summary>
+    public static IReadOnlyList<string> TaskDeletionOrder(IEnumerable<string> taskReferences)
+    {
+        ArgumentNullException.ThrowIfNull(taskReferences);
+        static int Sequence(string reference) =>
+            int.TryParse(reference[(reference.LastIndexOf('-') + 1)..], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var n) ? n : 0;
+        return taskReferences.OrderByDescending(Sequence).ToList();
     }
 
     /// <summary>Baton patients on the server that this ward does not contain.</summary>
@@ -122,10 +132,18 @@ public static class WardFhirLoader
         return ids;
     }
 
+    /// <summary>NEWS2 Observations first: they point at the readings they were scored from (<c>derivedFrom</c>).</summary>
+    public static IReadOnlyList<string> ObservationDeletionOrder(IEnumerable<string> ids)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        return ids.OrderByDescending(id => id.StartsWith("news2-", StringComparison.Ordinal)).ToList();
+    }
+
     private static async Task<int> DeleteAllAsync<T>(FhirClient client, string criterion, CancellationToken cancellationToken)
         where T : Resource
     {
-        var ids = await IdsAsync<T>(client, criterion, cancellationToken);
+        var found = await IdsAsync<T>(client, criterion, cancellationToken);
+        var ids = typeof(T) == typeof(Observation) ? ObservationDeletionOrder(found) : found;
         var type = ModelInfo.GetFhirTypeNameForType(typeof(T));
         foreach (var id in ids)
         {

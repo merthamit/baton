@@ -86,4 +86,21 @@ public class WardFhirBundleTests
     {
         Assert.Equal(["Provenance", "Task", "Flag", "Communication", "Observation"], WardFhirLoader.DeleteOrder);
     }
+
+    [Fact]
+    public void Loader_DeletesLaterCallsFirst_BecauseTheyArePartOfEarlierOnes()
+    {
+        // A later call's Task points at the earlier one (partOf); a server that checks references refuses the other order.
+        Assert.Equal(
+            ["Task/call-x-10", "Task/call-x-2", "Task/call-x-1"],
+            WardFhirLoader.TaskDeletionOrder(["Task/call-x-1", "Task/call-x-10", "Task/call-x-2"]));
+    }
+
+    [Fact]
+    public void Loader_DeletesNews2ObservationsBeforeTheReadingsTheyComeFrom()
+    {
+        Assert.Equal(
+            ["news2-synthetic-02-202611232315", "synthetic-02-0915-rr", "synthetic-02-0915-hr"],
+            WardFhirLoader.ObservationDeletionOrder(["synthetic-02-0915-rr", "news2-synthetic-02-202611232315", "synthetic-02-0915-hr"]));
+    }
 }
