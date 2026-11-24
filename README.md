@@ -26,10 +26,10 @@ when the numbers look fine, and drafts a handover where every sentence points ba
 |---|---|
 | **NEWS2 engine** | Calculates the National Early Warning Score 2 exactly as published by the Royal College of Physicians (2017). Pure, versioned function; every band boundary is tested. SpO2 Scale 2 only with a recorded clinical decision. |
 | **Ward board** | Bed-by-bed nurse cards: score with shape, risk words and trend (colour is never the only signal), the parameters raising it, concern flag, who was called and how long they have been waited for, and the next observation or how late it is. Patient view with the NEWS2 chart, events and every observation set. English and Turkish. |
-| **Escalation chain** | Alert → seen → reviewed → plan, time-stamped. Nurse "worried" flag and a call that patients or families can raise themselves. |
+| **Escalation chain** | Concern → called → arrived → assessed → plan, time-stamped and stored in FHIR. Response targets from NEWS2 guidance (60 min for 5–6 or a single 3, 30 min for 7+, configurable); when a target passes, Baton suggests the next tier but never calls anyone. Patients and families can raise a concern too. |
 | **SBAR handover** | Rule-based handover draft built from FHIR data. Every sentence links to its source. Nothing is final until a nurse confirms it. |
 
-Status: **in development.** Done so far: NEWS2 engine, FHIR reading/writing, synthetic ward generator, FHIR server, API and the ward board.
+Status: **in development.** Done so far: NEWS2 engine, FHIR reading/writing, synthetic ward generator, FHIR server, API, the ward board and the escalation chain (watch mode).
 
 ## How the score is calculated
 
@@ -64,6 +64,9 @@ algorithm version `RCP-NEWS2-2017`). Every band boundary of the RCP chart has it
 - **Writing:** one NEWS2 Observation (SNOMED CT 1104051000000101) with the total in `valueQuantity`, the
   seven sub-scores in `component` (SNOMED CT sub-score codes) and the source readings in
   `derivedFrom`. Sources must belong to the same patient.
+- **Escalation chain:** a nurse's concern is a `Flag`, a patient's or family's concern a `Communication`, each call a
+  `Task` (status follows the chain; the response target in `restriction.period.end`, the NEWS2 Observation as its
+  `focus`), and every resource has a `Provenance` (who, when).
 - **Validation:** every generated example passes the Firely validator in the tests and the official HL7
   validator in CI.
 
@@ -88,7 +91,8 @@ docker compose stop                           # free the CPU and memory when you
 
 Endpoints: `GET /health` (shows the data source), `GET /api/ward?at=…`, `GET /api/patients/{id}?at=…`.
 `at` must include a time zone offset. All data is synthetic. The in-memory source also takes `Baton:Beds` (1–30,
-default 8) and `Baton:TreatmentDelayHours` (default 0), for example `Baton__Beds=30`.
+default 8) and `Baton:TreatmentDelayHours` (default 0), for example `Baton__Beds=30`. Response targets:
+`Baton:MediumTargetMinutes` (60) and `Baton:HighTargetMinutes` (30).
 
 ## Run the board
 
@@ -101,8 +105,8 @@ npm run dev        # http://localhost:5173, proxies /api to the API on port 5188
 npm test           # component tests (Vitest)
 ```
 
-When the API reads from the FHIR server, escalation events are not stored in FHIR yet, so the cards say so and
-due times are computed from the score alone.
+The escalation chain is read from FHIR for both data sources. When the API reads from the FHIR server, other events
+(Baton's alerts, notes) are not stored there yet, and the patient screen says so.
 
 ## Tech stack
 
