@@ -24,7 +24,14 @@ public static class CardShift
 }
 
 /// <summary>One bed of the synthetic ward. All names are invented.</summary>
-public sealed record BedPlan(string Bed, string PatientName, int Age, ScenarioCard Card, double ShiftHours, string? Diagnosis = null);
+public sealed record BedPlan(
+    string Bed,
+    string PatientName,
+    int Age,
+    ScenarioCard Card,
+    double ShiftHours,
+    string? Diagnosis = null,
+    LateObservation? Late = null);
 
 public sealed record WardBed(string Bed, string PatientId, string PatientName, int Age, string Diagnosis, SimulatedPatient Patient);
 
@@ -42,7 +49,8 @@ public static class Ward
         new("01", "Hasan T.", 58, ScenarioCards.Stable, 0),
         new("02", "Ayşe K.", 71, ScenarioCards.Sepsis, 0),
         new("03", "Elif S.", 44, ScenarioCards.Stable, 2, "Lower-leg cellulitis"),
-        new("04", "Mehmet D.", 66, ScenarioCards.HiddenBleed, 0),
+        // Decision 9A: while the team is at bed 02's emergency (critical care called 00:20), bed 04's 00:30 set waits.
+        new("04", "Mehmet D.", 66, ScenarioCards.HiddenBleed, 0, Late: new LateObservation(16.5, 45, "the team was at bed 02's emergency")),
         new("05", "Nuri A.", 73, ScenarioCards.CopdScale2, 0),
         new("06", "Zeynep B.", 52, ScenarioCards.Recovering, 0),
         new("07", "İbrahim Y.", 80, ScenarioCards.Sepsis, -6, "Urinary tract infection, catheterised"),
@@ -91,6 +99,7 @@ public static class Ward
                 Seed = SeedFor(seed, i),
                 NoiseLevel = noiseLevel,
                 TreatmentDelayHours = treatmentDelayHours,
+                LateObservation = plan.Late,
             };
             return new WardBed(
                 plan.Bed,

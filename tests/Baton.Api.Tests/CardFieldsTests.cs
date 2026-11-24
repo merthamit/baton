@@ -208,4 +208,17 @@ public class CardFieldsTests(WebApplicationFactory<Program> factory) : IClassFix
         Assert.EndsWith("+03:00", bed.GetProperty("nextDue").GetString());
         Assert.EndsWith("+03:00", bed.GetProperty("escalation").GetProperty("concernRaisedAt").GetString());
     }
+
+    [Fact]
+    public async Task Ward_Bed04_IsOverdueWhileTheTeamIsAtBed02()
+    {
+        // Decision 9A: bed 04's 00:30 set is taken at 01:15.
+        var at0100 = Bed(await Ward(17), "04");
+        var at0115 = Bed(await Ward(17.25), "04");
+
+        Assert.Equal(At(16.5), at0100.GetProperty("nextDue").GetDateTimeOffset());
+        Assert.Equal(30, at0100.GetProperty("overdueMinutes").GetInt32());
+        Assert.Equal(0, at0115.GetProperty("overdueMinutes").GetInt32());
+        Assert.Contains(at0115.GetProperty("events").EnumerateArray(), e => e.GetProperty("kind").GetString() == "Note");
+    }
 }

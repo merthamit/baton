@@ -14,7 +14,17 @@ public sealed record SimulationOptions(DateTimeOffset ShiftStart)
 
     /// <summary>How many hours later than the card's timely treatment the treatment starts (decision 2B).</summary>
     public double TreatmentDelayHours { get; init; }
+
+    /// <summary>One set of observations taken late (decision 9A); null when every set is on time.</summary>
+    public LateObservation? LateObservation { get; init; }
 }
+
+/// <summary>
+/// The set due at <paramref name="DueHour"/> is taken <paramref name="MinutesLate"/> minutes late, for the given
+/// reason. Real wards delay about half of required sets, most often for a more urgent task. If no set falls due at
+/// that hour, nothing changes.
+/// </summary>
+public sealed record LateObservation(double DueHour, int MinutesLate, string Reason);
 
 public sealed record Measurement(double Hour, DateTimeOffset At, VitalSet Vitals, News2Input Input, News2Result Score);
 
@@ -50,6 +60,7 @@ public static class ShiftSimulator
             .ToList();
         var alerted = false;
         var criticalCareCalled = false;
+        var lateApplied = false;
 
         var hour = 0.0;
         while (hour < ShiftHours)
@@ -75,6 +86,16 @@ public static class ShiftSimulator
             }
 
             hour = NextMeasurement(options.ShiftStart, hour, score, concerns);
+            if (options.LateObservation is { } late && !lateApplied && Math.Abs(hour - late.DueHour) < 1e-6)
+            {
+                lateApplied = true;
+                var due = AtMinute(options.ShiftStart, hour);
+                hour += late.MinutesLate / 60.0;
+                events.Add(new ScenarioEvent(
+                    hour,
+                    ScenarioEventKind.Note,
+                    $"Observations due at {due:HH:mm} taken {late.MinutesLate} min late: {late.Reason}"));
+            }
         }
 
         return new SimulatedPatient(card, measurements, events.OrderBy(e => e.Hour).ToList());
