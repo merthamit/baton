@@ -73,6 +73,7 @@ export const en = {
   eventNote: 'Note',
 
   selectHint: 'Select a bed to see the patient’s chart, events and observations.',
+  patientError: 'Could not load this patient.',
   patientLoading: 'Loading the patient…',
   chartLabel: (bed: string, from: string, to: string) => `NEWS2 over the shift for ${bed}, ${from} to ${to}`,
   events: 'Events',

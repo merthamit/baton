@@ -59,6 +59,8 @@ app.MapGet("/api/ward", async (string? at, WardService ward, CancellationToken c
         return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
     }
 
+    moment = moment.ToOffset(settings.ShiftStart.Offset); // answer in ward time, whatever offset was sent
+
     return await FhirServerProblem.Guard(async () =>
         Results.Ok(new WardResponse(moment, settings.SourceName, settings.ShiftStart, settings.ShiftStart.AddHours(24), await ward.GetWardAsync(moment, ct))));
 });
@@ -69,6 +71,8 @@ app.MapGet("/api/patients/{id}", async (string id, string? at, WardService ward,
     {
         return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
     }
+
+    moment = moment.ToOffset(settings.ShiftStart.Offset); // answer in ward time, whatever offset was sent
 
     return await FhirServerProblem.Guard(async () =>
         await ward.GetPatientAsync(id, moment, ct) is { } series ? Results.Ok(series) : Results.NotFound());

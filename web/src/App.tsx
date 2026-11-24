@@ -16,6 +16,7 @@ export function App() {
   const patient = useLatest(
     (signal) => (view.bed && at ? fetchPatient(view.bed, at, signal) : Promise.resolve(undefined)),
     [view.bed, at],
+    view.bed,
   );
 
   useEffect(() => {
@@ -64,15 +65,25 @@ export function App() {
         </div>
       )}
 
-      {data ? <WardBoard ward={data} selectedId={view.bed} onSelect={selectBed} /> : !ward.error && <BoardSkeleton />}
+      {/* After an error the last answer belongs to another moment than the clock shows: never display it. */}
+      {ward.error ? null : data ? <WardBoard ward={data} selectedId={view.bed} onSelect={selectBed} /> : <BoardSkeleton />}
 
-      <section className="detail" aria-label={t.observations}>
-        {data && patient.data && at ? (
-          <PatientDetail series={patient.data} at={at} shiftStart={data.shiftStart} shiftEnd={data.shiftEnd} />
-        ) : (
-          <p className="muted">{view.bed && patient.loading ? t.patientLoading : t.selectHint}</p>
-        )}
-      </section>
+      {!ward.error && (
+        <section className="detail" aria-label={t.observations}>
+          {patient.error ? (
+            <div className="alert" role="alert">
+              <p>{t.patientError}</p>
+              <button type="button" className="btn" onClick={patient.retry}>
+                {t.retry}
+              </button>
+            </div>
+          ) : data && patient.data && at ? (
+            <PatientDetail series={patient.data} at={at} shiftStart={data.shiftStart} shiftEnd={data.shiftEnd} />
+          ) : (
+            <p className="muted">{view.bed && patient.loading ? t.patientLoading : t.selectHint}</p>
+          )}
+        </section>
+      )}
 
       <footer className="foot muted">{t.syntheticDetail}</footer>
     </div>

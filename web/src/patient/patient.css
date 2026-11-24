@@ -202,3 +202,9 @@
 .patient td.total {
   font-weight: 700;
 }
+
+.patient td .sub {
+  font-size: 0.7em;
+  font-weight: 700;
+  margin-left: 2px;
+}

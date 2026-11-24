@@ -79,8 +79,10 @@ describe('PatientDetail observations', () => {
 
     const last = rows[4]!;
     expect(within(last).getByText('00:15')).toBeInTheDocument();
-    const resp = within(last).getByText('22');
-    expect(resp.closest('td')).toHaveAttribute('data-sub', '3');
+    const resp = within(last).getByText('22').closest('td')!;
+    expect(resp).toHaveAttribute('data-sub', '3');
+    expect(resp).toHaveTextContent('22+3');
+    expect(within(last).getByText('A').closest('td')).toHaveTextContent(/^A$/);
     expect(within(last).getByText('10')).toBeInTheDocument();
   });
 

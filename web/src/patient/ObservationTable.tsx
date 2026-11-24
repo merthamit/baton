@@ -14,7 +14,7 @@ const columns: News2Parameter[] = [
   'Consciousness',
 ];
 
-/** Every scored observation set; a cell's sub-score is a data attribute and shading, the reading is always text. */
+/** Every scored observation set. A cell's sub-score is written next to the reading ("22 +3") and also shaded. */
 export function ObservationTable({ points, scale2 }: { points: ScorePoint[]; scale2: boolean }) {
   const { t } = useT();
 
@@ -43,7 +43,8 @@ export function ObservationTable({ points, scale2 }: { points: ScorePoint[]; sca
                 const sub = p.subScores[subScoreKey(c)];
                 return (
                   <td key={c} data-sub={sub ?? 'none'}>
-                    {readingOf(c, p.input, t) ?? '—'}
+                    <span>{readingOf(c, p.input, t) ?? '—'}</span>
+                    {sub !== null && sub > 0 && <sup className="sub">+{sub}</sup>}
                   </td>
                 );
               })}

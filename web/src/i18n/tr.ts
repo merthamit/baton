@@ -73,6 +73,7 @@ export const tr: Messages = {
   eventNote: 'Not',
 
   selectHint: 'Hastanın grafiğini, olaylarını ve ölçümlerini görmek için bir yatak seçin.',
+  patientError: 'Bu hasta yüklenemedi.',
   patientLoading: 'Hasta yükleniyor…',
   chartLabel: (bed: string, from: string, to: string) => `${bed} için vardiya boyunca NEWS2, ${from}–${to}`,
   events: 'Olaylar',

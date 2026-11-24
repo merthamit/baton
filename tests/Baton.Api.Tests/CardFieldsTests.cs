@@ -195,4 +195,17 @@ public class CardFieldsTests(WebApplicationFactory<Program> factory) : IClassFix
         using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal("FHIR server unreachable", problem.RootElement.GetProperty("title").GetString());
     }
+
+    [Fact]
+    public async Task Ward_UtcAt_IsAnsweredInWardTime()
+    {
+        var utc = Uri.EscapeDataString(At(15.5).ToUniversalTime().ToString("O"));
+        using var doc = JsonDocument.Parse(await ClientWith().GetStringAsync($"/api/ward?at={utc}"));
+        var bed = Bed(doc.RootElement, "02");
+
+        Assert.Equal(TimeSpan.FromHours(3), doc.RootElement.GetProperty("at").GetDateTimeOffset().Offset);
+        Assert.EndsWith("+03:00", bed.GetProperty("latest").GetProperty("at").GetString());
+        Assert.EndsWith("+03:00", bed.GetProperty("nextDue").GetString());
+        Assert.EndsWith("+03:00", bed.GetProperty("escalation").GetProperty("concernRaisedAt").GetString());
+    }
 }
