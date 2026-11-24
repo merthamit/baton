@@ -59,7 +59,8 @@ app.MapGet("/api/ward", async (string? at, WardService ward, CancellationToken c
         return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
     }
 
-    return Results.Ok(new WardResponse(moment, settings.SourceName, await ward.GetWardAsync(moment, ct)));
+    return await FhirServerProblem.Guard(async () =>
+        Results.Ok(new WardResponse(moment, settings.SourceName, settings.ShiftStart, settings.ShiftStart.AddHours(24), await ward.GetWardAsync(moment, ct))));
 });
 
 app.MapGet("/api/patients/{id}", async (string id, string? at, WardService ward, CancellationToken ct) =>
@@ -69,13 +70,34 @@ app.MapGet("/api/patients/{id}", async (string id, string? at, WardService ward,
         return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
     }
 
-    return await ward.GetPatientAsync(id, moment, ct) is { } series ? Results.Ok(series) : Results.NotFound();
+    return await FhirServerProblem.Guard(async () =>
+        await ward.GetPatientAsync(id, moment, ct) is { } series ? Results.Ok(series) : Results.NotFound());
 });
 
 GC.KeepAlive(source);
 app.Run();
 
-public sealed record WardResponse(DateTimeOffset At, string Source, IReadOnlyList<BedSummary> Beds);
+public sealed record WardResponse(DateTimeOffset At, string Source, DateTimeOffset ShiftStart, DateTimeOffset ShiftEnd, IReadOnlyList<BedSummary> Beds);
+
+/// <summary>Turns a FHIR server that cannot be reached into 503 problem details instead of a raw 500.</summary>
+public static class FhirServerProblem
+{
+    public static async Task<IResult> Guard(Func<Task<IResult>> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        try
+        {
+            return await action();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or FhirOperationException)
+        {
+            return Results.Problem(
+                title: "FHIR server unreachable",
+                detail: "The FHIR server did not answer. Check that it is running (docker compose up -d).",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+    }
+}
 
 /// <summary>Parses the <c>at</c> query parameter. It must carry an offset; an unencoded '+' arrives as a space.</summary>
 public static partial class TimeQuery

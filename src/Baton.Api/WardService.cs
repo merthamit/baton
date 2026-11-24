@@ -1,5 +1,6 @@
 using Baton.Core.News2;
 using Baton.Fhir;
+using Baton.Scenarios;
 using Hl7.Fhir.Model;
 
 namespace Baton.Api;
@@ -17,9 +18,34 @@ public sealed record ScorePoint(
     News2Input Input,
     IReadOnlyList<string> Notes);
 
-public sealed record BedSummary(string PatientId, string Name, string? Bed, ScorePoint? Latest, ScorePoint? Previous);
+/// <summary>
+/// One bed for the nurse card. <see cref="Drivers"/> are the parameters raising the latest score, highest sub-score
+/// first (ties in NEWS2 chart order). <see cref="NextDue"/> follows <see cref="MonitoringSchedule"/>; without events
+/// (<see cref="ConcernsKnown"/> false) it is computed from the score alone.
+/// </summary>
+public sealed record BedSummary(
+    string PatientId,
+    string Name,
+    string? Bed,
+    int? Age,
+    string? Diagnosis,
+    ScorePoint? Latest,
+    ScorePoint? Previous,
+    IReadOnlyList<News2Parameter> Drivers,
+    DateTimeOffset? NextDue,
+    int? OverdueMinutes,
+    bool ConcernsKnown,
+    Escalation Escalation,
+    bool EventsAvailable,
+    IReadOnlyList<WardEvent> Events);
 
-public sealed record PatientSeries(PatientRef Patient, IReadOnlyList<ScorePoint> Points);
+public sealed record PatientSeries(
+    PatientRef Patient,
+    int? Age,
+    string? Diagnosis,
+    IReadOnlyList<ScorePoint> Points,
+    bool EventsAvailable,
+    IReadOnlyList<WardEvent> Events);
 
 /// <summary>
 /// Scores the ward from FHIR data. Observations are grouped by measurement time; each time is read with
@@ -36,21 +62,78 @@ public sealed class WardService(IVitalSignsSource source)
         foreach (var patient in await source.GetPatientsAsync(cancellationToken))
         {
             var points = await ScoreAsync(patient, at, cancellationToken);
+            var events = await source.GetEventsAsync(patient.Id, at, cancellationToken);
+            var latest = points.Count > 0 ? points[^1] : null;
+
+            DateTimeOffset? nextDue = latest is null
+                ? null
+                : MonitoringSchedule.NextDue(
+                    latest.At,
+                    latest.Response,
+                    events.Events.Where(e => e.Kind == ScenarioEventKind.Concern).Select(e => e.At).ToList());
+            int? overdue = nextDue is { } due ? (int)Math.Max(0, Math.Floor((at - due).TotalMinutes)) : null;
+
             result.Add(new BedSummary(
                 patient.Id,
                 patient.Name,
                 patient.Bed,
-                points.Count > 0 ? points[^1] : null,
-                points.Count > 1 ? points[^2] : null));
+                AgeAt(patient.BirthDate, at),
+                patient.Diagnosis,
+                latest,
+                points.Count > 1 ? points[^2] : null,
+                latest is null ? [] : DriversOf(latest.SubScores),
+                nextDue,
+                overdue,
+                events.Available,
+                Escalation.From(events.Events, at),
+                events.Available,
+                events.Events));
         }
 
         return result;
     }
 
+    /// <summary>Parameters with a sub-score above 0, highest first; ties keep the NEWS2 chart order.</summary>
+    public static IReadOnlyList<News2Parameter> DriversOf(IReadOnlyDictionary<News2Parameter, int?> subScores)
+    {
+        ArgumentNullException.ThrowIfNull(subScores);
+        return subScores
+            .Where(s => s.Value > 0)
+            .OrderByDescending(s => s.Value)
+            .ThenBy(s => s.Key)
+            .Select(s => s.Key)
+            .ToList();
+    }
+
+    /// <summary>Whole years from the birth date to the date of <paramref name="at"/> (in its own offset).</summary>
+    public static int? AgeAt(DateOnly? birthDate, DateTimeOffset at)
+    {
+        if (birthDate is not { } born)
+        {
+            return null;
+        }
+
+        var today = DateOnly.FromDateTime(at.DateTime);
+        var age = today.Year - born.Year;
+        return born.AddYears(age) > today ? age - 1 : age;
+    }
+
     public async Task<PatientSeries?> GetPatientAsync(string patientId, DateTimeOffset at, CancellationToken cancellationToken)
     {
         var patient = (await source.GetPatientsAsync(cancellationToken)).FirstOrDefault(p => p.Id == patientId);
-        return patient is null ? null : new PatientSeries(patient, await ScoreAsync(patient, at, cancellationToken));
+        if (patient is null)
+        {
+            return null;
+        }
+
+        var events = await source.GetEventsAsync(patient.Id, at, cancellationToken);
+        return new PatientSeries(
+            patient,
+            AgeAt(patient.BirthDate, at),
+            patient.Diagnosis,
+            await ScoreAsync(patient, at, cancellationToken),
+            events.Available,
+            events.Events);
     }
 
     public static DateTimeOffset? TimeOf(Observation observation) =>
