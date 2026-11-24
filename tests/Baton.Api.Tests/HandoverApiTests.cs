@@ -11,6 +11,8 @@ namespace Baton.Api.Tests;
 
 // The handover list (sickest first) and "Taken over" on the in-memory ward (seed 42). Bed 02 (sepsis): measured 23:15
 // (NEWS2 6) and 00:15 (10). Every test gets a fresh host, so stored handovers never leak between tests.
+// Shares the Firely validator, whose first schema load is not safe to run in parallel.
+[Collection("Firely validator")]
 public class HandoverApiTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
 {
     private static readonly DateTimeOffset ShiftStart = new(2026, 11, 23, 8, 0, 0, TimeSpan.FromHours(3));

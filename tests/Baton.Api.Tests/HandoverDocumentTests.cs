@@ -11,6 +11,8 @@ namespace Baton.Api.Tests;
 
 // The confirmed handover as a FHIR document: Composition first, attested by the incoming nurse, every reference inside
 // the Bundle, and nothing the record did not hold at the handover moment.
+// Shares the Firely validator, whose first schema load is not safe to run in parallel.
+[Collection("Firely validator")]
 public class HandoverDocumentTests
 {
     private static readonly TimeSpan Ward = TimeSpan.FromHours(3);
