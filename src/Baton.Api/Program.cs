@@ -185,8 +185,15 @@ app.MapDelete("/api/try/{id}", (string id, TrySessions tries, Baton.Api.Live.War
 // and DELETEs on delete; without a payload it POSTs to the endpoint itself. Every form lands here.
 async Task<IResult> Notify(HttpRequest request, Baton.Api.Live.WardChangeFeed feed, CancellationToken ct)
 {
-    if (!string.IsNullOrEmpty(settings.HookSecret)
-        && request.Headers[Baton.Api.Live.LiveSubscriptions.HookHeader].ToString() != settings.HookSecret)
+    // Open only where a FHIR server calls back (HAPI source) or a secret is set; the secret is compared in constant time.
+    if (string.IsNullOrEmpty(settings.HookSecret))
+    {
+        if (settings.SourceName != BatonOptions.Hapi)
+        {
+            return Results.NotFound();
+        }
+    }
+    else if (!Baton.Api.Live.LiveSubscriptions.SecretMatches(request.Headers[Baton.Api.Live.LiveSubscriptions.HookHeader].ToString(), settings.HookSecret))
     {
         return Results.Problem("Hook secret mismatch.", statusCode: StatusCodes.Status401Unauthorized);
     }

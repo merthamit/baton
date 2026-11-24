@@ -23,6 +23,14 @@ public static class LiveSubscriptions
         ("baton-live-communication", "Communication?category=urn:baton:escalation|patient-or-family-concern"),
     ];
 
+    /// <summary>Compares the received hook secret in constant time.</summary>
+    public static bool SecretMatches(string? received, string expected)
+    {
+        var a = System.Text.Encoding.UTF8.GetBytes(received ?? "");
+        var b = System.Text.Encoding.UTF8.GetBytes(expected);
+        return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(a, b);
+    }
+
     public static IReadOnlyList<Subscription> Build(string callbackUrl, string? secret)
     {
         ArgumentException.ThrowIfNullOrEmpty(callbackUrl);
@@ -101,6 +109,8 @@ public sealed class LiveSubscriptionRegistrar(IOptions<BatonOptions> options, IL
 {
     public static readonly TimeSpan RetryEvery = TimeSpan.FromSeconds(10);
     public const int Attempts = 30;
+    public const int ActivationLooks = 5;
+    public static readonly TimeSpan ActivationWait = TimeSpan.FromSeconds(2);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -122,14 +132,25 @@ public sealed class LiveSubscriptionRegistrar(IOptions<BatonOptions> options, IL
 
                 foreach (var subscription in LiveSubscriptions.Build(settings.LiveCallbackUrl, settings.HookSecret))
                 {
-                    var stored = await client.ReadAsync<Subscription>($"Subscription/{subscription.Id}", ct: stoppingToken);
-                    if (stored?.Status == Subscription.SubscriptionStatus.Active)
+                    // The server activates a Subscription in the background: look a few times before warning.
+                    Subscription.SubscriptionStatus? status = null;
+                    for (var look = 0; look < ActivationLooks && status != Subscription.SubscriptionStatus.Active; look++)
+                    {
+                        if (look > 0)
+                        {
+                            await Task.Delay(ActivationWait, stoppingToken);
+                        }
+
+                        status = (await client.ReadAsync<Subscription>($"Subscription/{subscription.Id}", ct: stoppingToken))?.Status;
+                    }
+
+                    if (status == Subscription.SubscriptionStatus.Active)
                     {
                         logger.LogInformation("Live subscription {Id} is active", subscription.Id);
                     }
                     else
                     {
-                        logger.LogWarning("Live subscription {Id} is {Status}; is resthook_enabled set on the FHIR server?", subscription.Id, stored?.Status);
+                        logger.LogWarning("Live subscription {Id} is {Status}; is resthook_enabled set on the FHIR server?", subscription.Id, status);
                     }
                 }
 

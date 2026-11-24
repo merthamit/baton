@@ -119,6 +119,17 @@ public class FhirNotifyTests(WebApplicationFactory<Program> factory) : IClassFix
     }
 
     [Fact]
+    public async Task NotifyIsClosedOnTheInMemoryWardWithoutASecret()
+    {
+        // Nothing calls back in memory; without a secret an open endpoint would let anyone make every viewer refetch.
+        var client = factory.WithWebHostBuilder(b => b.UseSetting("Baton:Source", "InMemory")).CreateClient();
+
+        var response = await client.PostAsync("/api/fhir/notify", new StringContent("", Encoding.UTF8, "application/fhir+json"));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task NotifyWithWrongSecretIs401()
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/fhir/notify") { Content = new StringContent("", Encoding.UTF8, "application/fhir+json") };
