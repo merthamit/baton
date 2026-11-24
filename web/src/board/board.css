@@ -616,3 +616,16 @@ dialog.confirm textarea {
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* Live board: play the shift, and the live link status. */
+.live {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.live-link {
+  margin: 0;
+  font-size: 0.82rem;
+}

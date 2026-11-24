@@ -7,13 +7,15 @@ interface TimeControlProps {
   shiftEnd: string;
   at: string;
   onChange: (at: string) => void;
+  /** Called at once when the user moves the slider (before the debounced onChange). */
+  onUserMove?: () => void;
 }
 
 const stepMinutes = 15;
 const debounceMs = 150;
 
 /** A slider over the shift in 15-minute steps. The clock follows at once; the board reloads after a short pause. */
-export function TimeControl({ shiftStart, shiftEnd, at, onChange }: TimeControlProps) {
+export function TimeControl({ shiftStart, shiftEnd, at, onChange, onUserMove }: TimeControlProps) {
   const { t } = useT();
   const id = useId();
   const max = Math.round(minutesBetween(shiftStart, shiftEnd) / stepMinutes);
@@ -43,6 +45,7 @@ export function TimeControl({ shiftStart, shiftEnd, at, onChange }: TimeControlP
           aria-valuetext={clock(shown)}
           onChange={(e) => {
             const next = Number(e.target.value);
+            onUserMove?.();
             setStep(next);
             clearTimeout(timer.current);
             timer.current = setTimeout(() => onChange(addMinutes(shiftStart, next * stepMinutes)), debounceMs);

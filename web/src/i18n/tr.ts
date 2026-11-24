@@ -166,4 +166,11 @@ export const tr: Messages = {
   sourceListLabel: 'Bu cümlenin kaynakları',
   actTakeOver: 'Devraldım',
   handoverTryNote: 'Dene modu bir prova: devirler saklanmaz.',
+
+  liveLabel: 'Akan saat',
+  livePlay: 'Vardiyayı oynat',
+  livePause: 'Durdur',
+  liveSpeed: 'Hız',
+  liveLink: (status: 'connecting' | 'open' | 'reconnecting'): string =>
+    ({ connecting: 'Canlı bağlantı kuruluyor…', open: 'Canlı bağlantı açık', reconnecting: 'Canlı bağlantı yeniden kuruluyor…' })[status],
 };

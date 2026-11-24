@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { FakeEventSource } from './test/fakeEventSource';
 import userEvent from '@testing-library/user-event';
 import { App } from './App';
 import { bed, noChain, point, ward } from './fixtures';
@@ -132,5 +133,45 @@ describe('App handover view', () => {
     expect(await screen.findByRole('button', { name: /Bed 02 · Ayşe K\./ })).toHaveTextContent('Open SBAR');
     expect(fetchMock.mock.calls.some(([url]) => String(url).startsWith('/api/handover'))).toBe(true);
     expect(window.location.search).toContain('view=handover');
+  });
+});
+
+describe('App live board', () => {
+  it('refetches the ward on a change event and shows the link status', async () => {
+    window.history.replaceState(null, '', '/');
+    FakeEventSource.install();
+    let wardCalls = 0;
+    route({
+      '/health': () => respond(200, { tryAvailable: true }),
+      '/api/ward': () => {
+        wardCalls += 1;
+        return respond(200, ward(beds));
+      },
+    });
+    renderIn(<App />);
+    await screen.findByRole('button', { name: /Bed 02/ });
+    const before = wardCalls;
+
+    act(() => FakeEventSource.last().emit('ready', {}));
+    expect(screen.getByText('Live link on')).toBeInTheDocument();
+    act(() => FakeEventSource.last().emit('change', { kind: 'Fhir', patientId: 'synthetic-02', trySession: null, at: '2026-11-24T08:00:00Z' }));
+
+    await waitFor(() => expect(wardCalls).toBeGreaterThan(before));
+  });
+
+  it('pauses the live clock when the slider moves', async () => {
+    window.history.replaceState(null, '', '/');
+    FakeEventSource.install();
+    route({
+      '/health': () => respond(200, { tryAvailable: true }),
+      '/api/ward': () => respond(200, ward(beds)),
+    });
+    renderIn(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Play the shift' }));
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('slider'), { target: { value: '10' } });
+
+    expect(screen.getByRole('button', { name: 'Play the shift' })).toBeInTheDocument();
   });
 });

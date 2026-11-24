@@ -166,6 +166,13 @@ export const en = {
   sourceListLabel: 'Sources of this sentence',
   actTakeOver: 'Taken over',
   handoverTryNote: 'Try mode is a rehearsal: handovers are not stored.',
+
+  liveLabel: 'Live clock',
+  livePlay: 'Play the shift',
+  livePause: 'Pause',
+  liveSpeed: 'Speed',
+  liveLink: (status: 'connecting' | 'open' | 'reconnecting'): string =>
+    ({ connecting: 'Live link connecting…', open: 'Live link on', reconnecting: 'Live link reconnecting…' })[status],
 };
 
 export type Messages = typeof en;

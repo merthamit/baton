@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError, addTryAction, confirmHandover, endTry, fetchHandover, fetchHealth, fetchPatient, fetchWard, startTry, type TryActionKind } from './api/client';
 import { useLatest } from './api/useLatest';
+import { useLiveChanges } from './api/useLiveChanges';
+import { LiveControl, nextLiveAt, type LiveSpeed } from './board/LiveControl';
 import { BoardSkeleton, WardBoard } from './board/WardBoard';
 import { TimeControl } from './board/TimeControl';
 import { HandoverList } from './handover/HandoverList';
@@ -29,6 +31,11 @@ export function App() {
   const [trySession, setTrySession] = useState<TrySessionState | null>(null);
   const [revision, setRevision] = useState(0);
   const [tryMessage, setTryMessage] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState<LiveSpeed>(60);
+
+  // Live board: a change anywhere (FHIR Subscription, a handover, our own Try session) makes everything refetch.
+  const liveStatus = useLiveChanges(() => setRevision((n) => n + 1), trySession?.id);
 
   const health = useLatest((signal) => fetchHealth(signal), []);
   const ward = useLatest((signal) => fetchWard(view.at, lang, signal, trySession?.id), [view.at, lang, trySession?.id, revision]);
@@ -66,6 +73,32 @@ export function App() {
     document.querySelector('.detail')?.scrollIntoView?.({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
   }, []);
   const setAt = useCallback((at: string) => setView((v) => ({ ...v, at })), []);
+  const moveClock = useCallback(
+    (at: string) => {
+      setPlaying(false);
+      setAt(at);
+    },
+    [setAt],
+  );
+
+  // The live clock: every 2 s the ward moves speed × 2 s of scenario time, and stops at the shift end.
+  const shiftEnd = ward.data?.shiftEnd;
+  const wardAt = ward.data?.at;
+  useEffect(() => {
+    if (!playing || !shiftEnd || !wardAt) {
+      return undefined;
+    }
+    const timer = setInterval(() => {
+      setView((v) => {
+        const next = nextLiveAt(v.at ?? wardAt, shiftEnd, speed, 2000);
+        if (next === shiftEnd) {
+          setPlaying(false);
+        }
+        return { ...v, at: next };
+      });
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [playing, speed, shiftEnd, wardAt]);
   const showView = (next: 'board' | 'handover') => setView((v) => ({ ...v, view: next === 'handover' ? 'handover' : undefined }));
 
   const takeOver = async (patientId: string): Promise<string | null> => {
@@ -168,6 +201,9 @@ export function App() {
           {!trySession && tryReason && <span className="reason">{tryReason}</span>}
         </div>
         <LanguageToggle />
+        <p className="live-link muted" role="status">
+          {t.liveLink(liveStatus)}
+        </p>
       </header>
 
       {tryMessage && (
@@ -189,7 +225,15 @@ export function App() {
 
       {data && (
         <section className="controls" aria-label={t.timeLabel}>
-          <TimeControl shiftStart={data.shiftStart} shiftEnd={data.shiftEnd} at={view.at ?? data.at} onChange={setAt} />
+          <TimeControl shiftStart={data.shiftStart} shiftEnd={data.shiftEnd} at={view.at ?? data.at} onChange={moveClock} onUserMove={() => setPlaying(false)} />
+          <LiveControl
+            playing={playing}
+            speed={speed}
+            atEnd={Date.parse(view.at ?? data.at) >= Date.parse(data.shiftEnd)}
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+            onSpeed={setSpeed}
+          />
           <p className="hint muted">{t.timeHint}</p>
           <p className="source muted">{t.dataSource(data.source)}</p>
         </section>
