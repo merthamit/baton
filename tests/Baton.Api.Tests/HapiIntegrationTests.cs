@@ -36,5 +36,9 @@ public class HapiIntegrationTests
 
         var hapiWard = await hapi.GetWardAsync(ShiftStart.AddHours(15.5), CancellationToken.None);
         Assert.Equal(8, hapiWard.Count);
+
+        var source = new HapiVitalSignsSource(client);
+        var chain = await source.GetEscalationAsync("synthetic-02", end, CancellationToken.None);
+        Assert.Contains(chain, r => r is Baton.Core.Escalation.Called);
     }
 }

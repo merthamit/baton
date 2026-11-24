@@ -1,3 +1,5 @@
+using Baton.Core.Escalation;
+using Baton.Fhir;
 using Hl7.Fhir.Model;
 
 namespace Baton.Scenarios;
@@ -21,6 +23,51 @@ public static class WardFhirBundle
     public const string ConditionCategorySystem = "http://terminology.hl7.org/CodeSystem/condition-category";
     public const string ConditionClinicalSystem = "http://terminology.hl7.org/CodeSystem/condition-clinical";
     public const string ConditionVerificationSystem = "http://terminology.hl7.org/CodeSystem/condition-ver-status";
+
+    /// <summary>
+    /// The scenario's escalation chain as FHIR resources, plus the NEWS2 Observation of each call's triggering measurement
+    /// (the call Task's focus).
+    /// </summary>
+    private static IEnumerable<Resource> Escalation(WardBed bed, DateTimeOffset shiftStart)
+    {
+        var records = ScenarioEscalation.From(bed, shiftStart);
+        if (records.Count == 0)
+        {
+            return [];
+        }
+
+        var subject = new ResourceReference($"Patient/{bed.PatientId}");
+        var news2 = new Dictionary<string, Observation>(StringComparer.Ordinal);
+
+        ResourceReference? News2At(DateTimeOffset at)
+        {
+            var measurement = bed.Patient.Measurements.LastOrDefault(m => m.At <= at);
+            if (measurement is null)
+            {
+                return null;
+            }
+
+            var id = $"news2-{bed.PatientId}-{measurement.At.ToString("yyyyMMddHHmm", System.Globalization.CultureInfo.InvariantCulture)}";
+            if (!news2.ContainsKey(id))
+            {
+                var options = new ReadOptions(measurement.At, TimeSpan.FromHours(13))
+                {
+                    SpO2Scale = measurement.Input.SpO2Scale,
+                    Scale2Authorisation = measurement.Input.Scale2Authorisation,
+                };
+                var reading = VitalSignsReader.Read(ScenarioFhirExport.ToObservations(bed, measurement), options);
+                var observation = News2ObservationWriter.Create(measurement.Score, reading, subject, measurement.At);
+                observation.Id = id;
+                news2[id] = observation;
+            }
+
+            return new ResourceReference($"Observation/{id}");
+        }
+
+        var scores = bed.Patient.Measurements.Select(m => new ScoreMark(m.At, m.Score.Risk)).ToList();
+        var chain = EscalationFhir.ToResources(records, bed.PatientId, News2At, scores);
+        return [.. news2.Values, .. chain];
+    }
 
     public static Bundle Build(WardBed bed)
     {
@@ -69,6 +116,8 @@ public static class WardFhirBundle
 
         var resources = new List<Resource> { patient, condition };
         resources.AddRange(bed.Patient.Measurements.SelectMany(m => ScenarioFhirExport.ToObservations(bed, m)));
+        resources.AddRange(Escalation(bed, shiftStart));
+        resources.AddRange(EscalationFhir.Practitioners);
 
         return new Bundle
         {

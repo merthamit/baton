@@ -31,14 +31,16 @@ public static class WardFhirLoader
         await WaitUntilReadyAsync(client, log, cancellationToken);
         foreach (var stale in StalePatientIds(await BatonPatientIdsAsync(client, cancellationToken), ward))
         {
+            var chain = await DeleteEscalationAsync(client, stale, cancellationToken);
             var observations = await DeleteAllAsync<Observation>(client, $"subject=Patient/{stale}", cancellationToken);
             var conditions = await DeleteAllAsync<Condition>(client, $"subject=Patient/{stale}", cancellationToken);
             await client.DeleteAsync($"Patient/{stale}", ct: cancellationToken);
-            log?.Invoke($"Removed stale patient {stale} ({observations} observations, {conditions} conditions)");
+            log?.Invoke($"Removed stale patient {stale} ({observations} observations, {conditions} conditions, {chain} escalation resources)");
         }
 
         foreach (var bed in ward)
         {
+            await DeleteEscalationAsync(client, bed.PatientId, cancellationToken);
             var removed = await DeleteAllAsync<Observation>(client, $"subject=Patient/{bed.PatientId}", cancellationToken);
             var bundle = WardFhirBundle.Build(bed);
             await client.TransactionAsync(bundle, cancellationToken);
@@ -61,6 +63,35 @@ public static class WardFhirLoader
                 await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
             }
         }
+    }
+
+    /// <summary>
+    /// Deletion order for a patient's data. A server that checks references refuses to delete a resource something still
+    /// points at: Provenance points at the chain resources, and a call Task points at its NEWS2 Observation.
+    /// </summary>
+    public static IReadOnlyList<string> DeleteOrder { get; } = ["Provenance", "Task", "Flag", "Communication", "Observation"];
+
+    private static async Task<int> DeleteEscalationAsync(FhirClient client, string patientId, CancellationToken cancellationToken)
+    {
+        var targets = new List<string>();
+        targets.AddRange((await IdsAsync<Hl7.Fhir.Model.Task>(client, $"patient=Patient/{patientId}", cancellationToken)).Select(id => $"Task/{id}"));
+        targets.AddRange((await IdsAsync<Flag>(client, $"patient=Patient/{patientId}", cancellationToken)).Select(id => $"Flag/{id}"));
+        targets.AddRange((await IdsAsync<Communication>(client, $"subject=Patient/{patientId}", cancellationToken)).Select(id => $"Communication/{id}"));
+
+        foreach (var target in targets)
+        {
+            await DeleteAllAsync<Provenance>(client, $"target={target}", cancellationToken);
+        }
+
+        foreach (var type in new[] { "Task", "Flag", "Communication" })
+        {
+            foreach (var target in targets.Where(t => t.StartsWith(type + "/", StringComparison.Ordinal)))
+            {
+                await client.DeleteAsync(target, ct: cancellationToken);
+            }
+        }
+
+        return targets.Count;
     }
 
     /// <summary>Baton patients on the server that this ward does not contain.</summary>

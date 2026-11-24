@@ -79,4 +79,17 @@ public class SourceTests
         Assert.False(events.Available);
         Assert.Empty(events.Events);
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task InMemory_Escalation_EqualsScenarioRecords()
+    {
+        var until = At(17); // 01:00
+        var expected = ScenarioEscalation.From(Ward.Generate(Start, 42)[1], Start).Where(r => r.At <= until);
+
+        var actual = await new InMemoryVitalSignsSource(Start, 42).GetEscalationAsync("synthetic-02", until, default);
+
+        Assert.Equal(
+            expected.OrderBy(r => r.At).ThenBy(r => r.GetType().Name),
+            actual.OrderBy(r => r.At).ThenBy(r => r.GetType().Name));
+    }
 }
