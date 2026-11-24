@@ -37,41 +37,6 @@ public class CardFieldsTests(WebApplicationFactory<Program> factory) : IClassFix
         ward.GetProperty("beds").EnumerateArray().Single(b => b.GetProperty("bed").GetString() == bed);
 
     [Fact]
-    public void Escalation_CalledNotArrived_CountsWaitingMinutes()
-    {
-        var events = new[] { new WardEvent(At(16.0833), ScenarioEventKind.DoctorCalled, "called") };
-
-        var escalation = Escalation.From(events, At(16.0833).AddMinutes(20));
-
-        Assert.Equal(events[0].At, escalation.DoctorCalledAt);
-        Assert.Equal(20, escalation.WaitingMinutes);
-        Assert.Null(escalation.DoctorArrivedAt);
-    }
-
-    [Fact]
-    public void Escalation_Arrived_NoWaiting()
-    {
-        var events = new[]
-        {
-            new WardEvent(At(15), ScenarioEventKind.DoctorCalled, "called"),
-            new WardEvent(At(15.5), ScenarioEventKind.DoctorArrived, "arrived"),
-        };
-
-        var escalation = Escalation.From(events, At(16));
-
-        Assert.Equal(At(15.5), escalation.DoctorArrivedAt);
-        Assert.Null(escalation.WaitingMinutes);
-    }
-
-    [Fact]
-    public void Escalation_IgnoresEventsAfterAt()
-    {
-        var events = new[] { new WardEvent(At(15), ScenarioEventKind.Concern, "worried") };
-
-        Assert.Null(Escalation.From(events, At(14)).ConcernRaisedAt);
-    }
-
-    [Fact]
     public void Drivers_OrderedByScoreThenChart()
     {
         var subScores = new Dictionary<News2Parameter, int?>
@@ -97,9 +62,12 @@ public class CardFieldsTests(WebApplicationFactory<Program> factory) : IClassFix
         var escalation = bed.GetProperty("escalation");
 
         Assert.Equal(At(12.25), escalation.GetProperty("concernRaisedAt").GetDateTimeOffset());
-        Assert.Equal(At(15.25).AddMinutes(4), escalation.GetProperty("doctorCalledAt").GetDateTimeOffset());
-        Assert.Equal(11, escalation.GetProperty("waitingMinutes").GetInt32());
-        Assert.Equal(JsonValueKind.Null, escalation.GetProperty("doctorArrivedAt").ValueKind);
+        Assert.Equal("Called", escalation.GetProperty("step").GetString());
+        Assert.Equal(11, escalation.GetProperty("minutesWaited").GetInt32());
+        var open = escalation.GetProperty("openCall");
+        Assert.Equal(At(15.25).AddMinutes(4), open.GetProperty("calledAt").GetDateTimeOffset());
+        Assert.Equal(At(16.25).AddMinutes(4), open.GetProperty("targetAt").GetDateTimeOffset());
+        Assert.Equal("OnCallDoctor", open.GetProperty("tier").GetString());
         Assert.True(bed.GetProperty("eventsAvailable").GetBoolean());
         Assert.True(bed.GetProperty("concernsKnown").GetBoolean());
         Assert.All(bed.GetProperty("events").EnumerateArray(), e => Assert.True(e.GetProperty("at").GetDateTimeOffset() <= At(15.5)));
@@ -172,7 +140,11 @@ public class CardFieldsTests(WebApplicationFactory<Program> factory) : IClassFix
 
         Assert.Equal(71, root.GetProperty("age").GetInt32());
         Assert.True(root.GetProperty("eventsAvailable").GetBoolean());
-        Assert.Contains(root.GetProperty("events").EnumerateArray(), e => e.GetProperty("kind").GetString() == "CriticalCareCalled");
+        var kinds = root.GetProperty("events").EnumerateArray().Select(e => e.GetProperty("kind").GetString()).ToList();
+        Assert.Contains("Alert", kinds);
+        Assert.DoesNotContain("CriticalCareCalled", kinds); // chain events come as escalationRecords now
+        Assert.DoesNotContain("DoctorCalled", kinds);
+        Assert.DoesNotContain("TreatmentStarted", kinds);
     }
 
     [Fact]

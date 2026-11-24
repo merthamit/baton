@@ -1,3 +1,4 @@
+using Baton.Core.Escalation;
 using Baton.Core.News2;
 using Baton.Fhir;
 using Baton.Scenarios;
@@ -36,9 +37,24 @@ public sealed record BedSummary(
     DateTimeOffset? NextDue,
     int? OverdueMinutes,
     bool ConcernsKnown,
-    Escalation Escalation,
+    EscalationState Escalation,
     bool EventsAvailable,
     IReadOnlyList<WardEvent> Events);
+
+/// <summary>One escalation record for the patient's timeline: <c>Kind</c> is the record type (ConcernRaised, Called, …).</summary>
+public sealed record EscalationRecordView(DateTimeOffset At, string Kind, string By, EscalationTier? Tier, string? Text, bool? Simulated)
+{
+    public static EscalationRecordView From(EscalationRecord record) => record switch
+    {
+        ConcernRaised c => new(c.At, nameof(ConcernRaised), c.By, null, c.Note, null),
+        PatientOrFamilyConcern p => new(p.At, nameof(PatientOrFamilyConcern), p.By, null, p.Text, null),
+        Called c => new(c.At, nameof(Called), c.By, c.Tier, null, null),
+        Arrived a => new(a.At, nameof(Arrived), a.By, null, null, a.Simulated),
+        Assessed a => new(a.At, nameof(Assessed), a.By, null, a.Text, null),
+        Planned p => new(p.At, nameof(Planned), p.By, null, p.Text, null),
+        _ => new(record.At, record.GetType().Name, record.By, null, null, null),
+    };
+}
 
 public sealed record PatientSeries(
     PatientRef Patient,
@@ -46,15 +62,19 @@ public sealed record PatientSeries(
     string? Diagnosis,
     IReadOnlyList<ScorePoint> Points,
     bool EventsAvailable,
-    IReadOnlyList<WardEvent> Events);
+    IReadOnlyList<WardEvent> Events,
+    EscalationState Escalation,
+    IReadOnlyList<EscalationRecordView> EscalationRecords);
 
 /// <summary>
 /// Scores the ward from FHIR data. Observations are grouped by measurement time; each time is read with
 /// <see cref="VitalSignsReader"/> (Now = that time, readings up to 13 hours old count, since a patient scoring 0
 /// is measured 12-hourly) and scored with <see cref="News2Calculator"/>. No NEWS2 rule is repeated here.
 /// </summary>
-public sealed class WardService(IVitalSignsSource source)
+public sealed class WardService(IVitalSignsSource source, EscalationOptions? escalationOptions = null)
 {
+    private readonly EscalationOptions options = escalationOptions ?? new EscalationOptions();
+
     public static readonly TimeSpan MaxReadingAge = TimeSpan.FromHours(13);
 
     public async Task<IReadOnlyList<BedSummary>> GetWardAsync(DateTimeOffset at, CancellationToken cancellationToken)
@@ -64,6 +84,7 @@ public sealed class WardService(IVitalSignsSource source)
         {
             var points = await ScoreAsync(patient, at, cancellationToken);
             var events = await source.GetEventsAsync(patient.Id, at, cancellationToken);
+            var records = await source.GetEscalationAsync(patient.Id, at, cancellationToken);
             var latest = points.Count > 0 ? points[^1] : null;
 
             DateTimeOffset? nextDue = latest is null
@@ -71,7 +92,7 @@ public sealed class WardService(IVitalSignsSource source)
                 : MonitoringSchedule.NextDue(
                     latest.At,
                     latest.Response,
-                    events.Events.Where(e => e.Kind == ScenarioEventKind.Concern).Select(e => e.At).ToList());
+                    records.OfType<ConcernRaised>().Select(c => c.At).ToList());
             int? overdue = nextDue is { } due ? (int)Math.Max(0, Math.Floor((at - due).TotalMinutes)) : null;
 
             result.Add(new BedSummary(
@@ -85,10 +106,10 @@ public sealed class WardService(IVitalSignsSource source)
                 latest is null ? [] : DriversOf(latest.SubScores),
                 nextDue,
                 overdue,
+                true,
+                Chain(records, points, at),
                 events.Available,
-                Escalation.From(events.Events, at),
-                events.Available,
-                events.Events));
+                NonChain(events.Events)));
         }
 
         return result;
@@ -128,13 +149,35 @@ public sealed class WardService(IVitalSignsSource source)
         }
 
         var events = await source.GetEventsAsync(patient.Id, at, cancellationToken);
+        var records = await source.GetEscalationAsync(patient.Id, at, cancellationToken);
+        var points = await ScoreAsync(patient, at, cancellationToken);
         return new PatientSeries(
             patient,
             AgeAt(patient.BirthDate, at),
             patient.Diagnosis,
-            await ScoreAsync(patient, at, cancellationToken),
+            points,
             events.Available,
-            events.Events);
+            NonChain(events.Events),
+            Chain(records, points, at),
+            records.OrderBy(r => r.At).Select(EscalationRecordView.From).ToList());
+    }
+
+    /// <summary>Scenario events that are now escalation records (shown from FHIR), so the timeline does not repeat them.</summary>
+    private static readonly HashSet<ScenarioEventKind> ChainKinds =
+    [
+        ScenarioEventKind.Concern,
+        ScenarioEventKind.DoctorCalled,
+        ScenarioEventKind.DoctorArrived,
+        ScenarioEventKind.TreatmentStarted,
+        ScenarioEventKind.CriticalCareCalled,
+    ];
+
+    private static IReadOnlyList<WardEvent> NonChain(IReadOnlyList<WardEvent> events) =>
+        events.Where(e => !ChainKinds.Contains(e.Kind)).ToList();
+
+    private EscalationState Chain(IReadOnlyList<EscalationRecord> records, IReadOnlyList<ScorePoint> points, DateTimeOffset at)
+    {
+        return EscalationChain.At(records, points.Select(p => new ScoreMark(p.At, p.Risk)).ToList(), at, options);
     }
 
     public static DateTimeOffset? TimeOf(Observation observation) =>

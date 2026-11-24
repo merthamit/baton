@@ -25,6 +25,15 @@ builder.Services.AddSingleton<IVitalSignsSource>(sp =>
         _ => throw new InvalidOperationException($"Unknown Baton:Source '{options.Source}'. Use InMemory or Hapi."),
     };
 });
+builder.Services.AddSingleton(sp =>
+{
+    var options = sp.GetRequiredService<IOptions<BatonOptions>>().Value;
+    return new Baton.Core.Escalation.EscalationOptions
+    {
+        MediumTargetMinutes = options.MediumTargetMinutes,
+        HighTargetMinutes = options.HighTargetMinutes,
+    };
+});
 builder.Services.AddSingleton<WardService>();
 
 var app = builder.Build();
@@ -156,6 +165,12 @@ public sealed class BatonOptions
 
     /// <summary>In-memory source: how many beds to generate (1–30; 8 story beds by default).</summary>
     public int Beds { get; set; } = Baton.Scenarios.Ward.DefaultBeds;
+
+    /// <summary>Response target for a score of 5–6 or a single parameter scoring 3, in minutes (RCP NEWS2: 60).</summary>
+    public int MediumTargetMinutes { get; set; } = 60;
+
+    /// <summary>Response target for a score of 7 or more, in minutes (RCP NEWS2: 30).</summary>
+    public int HighTargetMinutes { get; set; } = 30;
 
     /// <summary>In-memory source: hours by which treatment starts late (decision 2B). The FHIR loader has --delay.</summary>
     public double TreatmentDelayHours { get; set; }
