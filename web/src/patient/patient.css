@@ -271,3 +271,18 @@
 .chain-panel li[data-kind='PatientOrFamilyConcern'] b {
   color: var(--warn);
 }
+
+.actions {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  background: var(--accent-soft);
+}
+
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

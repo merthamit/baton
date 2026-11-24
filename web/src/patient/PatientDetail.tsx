@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { EscalationRecordView, PatientSeries, WardEvent } from '../api/types';
 import { useT } from '../i18n/LanguageProvider';
 import { riskText, shapeOf, tierOf } from '../risk';
@@ -36,10 +37,12 @@ interface PatientDetailProps {
   at: string;
   shiftStart: string;
   shiftEnd: string;
+  /** Try mode's action panel for this patient, when Try is on for them. */
+  actions?: ReactNode;
 }
 
 /** The selected patient: NEWS2 over the shift with events, the event timeline and every observation set. */
-export function PatientDetail({ series, at, shiftStart, shiftEnd }: PatientDetailProps) {
+export function PatientDetail({ series, at, shiftStart, shiftEnd, actions }: PatientDetailProps) {
   const { t } = useT();
   const { patient, points } = series;
   const latest = points.at(-1) ?? null;
@@ -63,6 +66,8 @@ export function PatientDetail({ series, at, shiftStart, shiftEnd }: PatientDetai
           </p>
         )}
       </div>
+
+      {actions}
 
       <div className="patient-grid">
         <ScoreChart

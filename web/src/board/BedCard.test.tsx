@@ -123,6 +123,11 @@ describe('BedCard escalation', () => {
     expect(screen.getByText('11 / 60 min')).toBeInTheDocument();
   });
 
+  it('shows a patient or family concern', () => {
+    card(bed({ escalation: chain({ patientConcernAt: '2026-11-23T21:00:00+03:00' }) }));
+    expect(screen.getByText('Patient/family concern 21:00')).toBeInTheDocument();
+  });
+
   it('no longer shows the old doctor chips', () => {
     card(bed({ escalation: chain({ step: 'Assessed', openCall: null, minutesWaited: null }) }));
     expect(screen.queryByText(/Doctor called .* waiting/)).toBeNull();

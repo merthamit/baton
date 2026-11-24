@@ -44,10 +44,12 @@ describe('App states', () => {
   });
 
   it('explains a FHIR server that is down and retries', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(respond(503, { title: 'FHIR server unreachable' }))
-      .mockResolvedValue(respond(200, ward([bed()])));
+    let wardCalls = 0;
+    const fetchMock = vi.fn((url: string) => {
+      if (url.startsWith('/health')) return Promise.resolve(respond(200, { tryAvailable: true }));
+      wardCalls += 1;
+      return Promise.resolve(wardCalls === 1 ? respond(503, { title: 'FHIR server unreachable' }) : respond(200, ward([bed()])));
+    });
     vi.stubGlobal('fetch', fetchMock);
     renderIn(<App />);
 

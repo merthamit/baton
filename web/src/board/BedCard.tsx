@@ -138,6 +138,11 @@ export function BedCard({ bed, selected, onSelect }: BedCardProps) {
               {t.concern(clock(escalation.concernRaisedAt))}
             </Chip>
           )}
+          {escalation.patientConcernAt && (
+            <Chip icon="flag" tone="warn">
+              {t.patientConcern(clock(escalation.patientConcernAt))}
+            </Chip>
+          )}
           {latest?.input.spO2Scale === 'Scale2' && <Chip icon="lungs">{t.scale2}</Chip>}
         </span>
         <ChainStrip state={escalation} />

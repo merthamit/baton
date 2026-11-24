@@ -1,21 +1,34 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiError, fetchPatient, fetchWard } from './api/client';
+import { ApiError, addTryAction, endTry, fetchHealth, fetchPatient, fetchWard, startTry, type TryActionKind } from './api/client';
 import { useLatest } from './api/useLatest';
 import { BoardSkeleton, WardBoard } from './board/WardBoard';
 import { TimeControl } from './board/TimeControl';
 import { LanguageToggle, useT } from './i18n/LanguageProvider';
+import { ActionPanel } from './patient/ActionPanel';
 import { PatientDetail } from './patient/PatientDetail';
+import type { DialogResult } from './ui/ConfirmDialog';
 import { readUrlState, writeUrlState } from './url';
 import './board/board.css';
+
+interface TrySessionState {
+  id: string;
+  patientId: string;
+  lastActionAt: string;
+}
 
 export function App() {
   const { t, lang } = useT();
   const [view, setView] = useState(() => readUrlState(window.location.search));
-  const ward = useLatest((signal) => fetchWard(view.at, lang, signal), [view.at, lang]);
+  const [trySession, setTrySession] = useState<TrySessionState | null>(null);
+  const [revision, setRevision] = useState(0);
+  const [tryMessage, setTryMessage] = useState<string | null>(null);
+
+  const health = useLatest((signal) => fetchHealth(signal), []);
+  const ward = useLatest((signal) => fetchWard(view.at, lang, signal, trySession?.id), [view.at, lang, trySession?.id, revision]);
   const at = view.at ?? ward.data?.at;
   const patient = useLatest(
-    (signal) => (view.bed && at ? fetchPatient(view.bed, at, lang, signal) : Promise.resolve(undefined)),
-    [view.bed, at, lang],
+    (signal) => (view.bed && at ? fetchPatient(view.bed, at, lang, signal, trySession?.id) : Promise.resolve(undefined)),
+    [view.bed, at, lang, trySession?.id, revision],
     view.bed,
   );
 
@@ -26,6 +39,15 @@ export function App() {
     }
   }, [view]);
 
+  // A Try session the API no longer knows (expired, restarted) ends Try mode with a message.
+  const expired = [ward.error, patient.error].some((e) => e instanceof ApiError && e.status === 404 && trySession);
+  useEffect(() => {
+    if (expired) {
+      setTrySession(null);
+      setTryMessage(t.tryExpired);
+    }
+  }, [expired, t.tryExpired]);
+
   const selectBed = useCallback((bed: string) => {
     setView((v) => ({ ...v, bed }));
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -33,6 +55,51 @@ export function App() {
   }, []);
   const setAt = useCallback((at: string) => setView((v) => ({ ...v, at })), []);
   const data = ward.data;
+
+  const tryAvailable = health.data?.tryAvailable === true;
+  const tryReason = health.data && !tryAvailable ? t.tryNeedsMemory : tryAvailable && !view.bed ? t.tryChooseBed : null;
+
+  const begin = async () => {
+    if (!view.bed || !at) {
+      return;
+    }
+    setTryMessage(null);
+    try {
+      const started = await startTry(view.bed, at);
+      setTrySession({ id: started.sessionId, patientId: started.patientId, lastActionAt: started.startedAt });
+    } catch {
+      setTryMessage(t.tryStartFailed);
+    }
+  };
+
+  const reset = () => {
+    if (trySession) {
+      void endTry(trySession.id).catch(() => undefined);
+    }
+    setTrySession(null);
+  };
+
+  const act = async (kind: TryActionKind, result: DialogResult): Promise<string | null> => {
+    if (!trySession || !at) {
+      return null;
+    }
+    try {
+      const saved = await addTryAction(trySession.id, { kind, at, text: result.text || undefined, tier: result.tier });
+      setTrySession((s) => (s ? { ...s, lastActionAt: saved.lastActionAt } : s));
+      setRevision((n) => n + 1);
+      return null;
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) {
+        setTrySession(null);
+        setTryMessage(t.tryExpired);
+        return null;
+      }
+      return e instanceof ApiError ? (e.detail ?? e.title) : String(e);
+    }
+  };
+
+  const tryBed = trySession ? data?.beds.find((b) => b.patientId === trySession.patientId) : undefined;
+  const bedLabel = (bed: string | null | undefined, id: string) => (bed ? t.bed(bed) : id);
 
   return (
     <div className="wrap">
@@ -49,8 +116,36 @@ export function App() {
         <p className="notice">
           <strong>{t.syntheticNotice}</strong>
         </p>
+        <div className="mode">
+          <div className="seg" role="group" aria-label={t.modeLabel}>
+            <button type="button" aria-pressed={!trySession} onClick={reset}>
+              {t.modeWatch}
+            </button>
+            <button type="button" aria-pressed={!!trySession} disabled={!trySession && (!tryAvailable || !view.bed)} onClick={() => void begin()}>
+              {t.modeTry}
+            </button>
+          </div>
+          {!trySession && tryReason && <span className="reason">{tryReason}</span>}
+        </div>
         <LanguageToggle />
       </header>
+
+      {tryMessage && (
+        <p className="try-message" role="status">
+          {tryMessage}
+        </p>
+      )}
+
+      {trySession && (
+        <section className="try-banner" role="status">
+          <p>
+            <strong>{t.tryBanner(bedLabel(tryBed?.bed, trySession.patientId), tryBed?.name ?? '')}</strong> <span>{t.tryNote}</span>
+          </p>
+          <button type="button" className="btn" onClick={reset}>
+            {t.tryReset}
+          </button>
+        </section>
+      )}
 
       {data && (
         <section className="controls" aria-label={t.timeLabel}>
@@ -60,7 +155,7 @@ export function App() {
         </section>
       )}
 
-      {ward.error && (
+      {ward.error && !expired && (
         <div className="alert" role="alert">
           <p>{ward.error instanceof ApiError && ward.error.status === 503 ? t.fhirDown : t.loadError}</p>
           <button type="button" className="btn" onClick={ward.retry}>
@@ -74,7 +169,7 @@ export function App() {
 
       {!ward.error && (
         <section className="detail" aria-label={t.observations}>
-          {patient.error ? (
+          {patient.error && !expired ? (
             <div className="alert" role="alert">
               <p>{t.patientError}</p>
               <button type="button" className="btn" onClick={patient.retry}>
@@ -82,7 +177,24 @@ export function App() {
               </button>
             </div>
           ) : data && patient.data && at ? (
-            <PatientDetail series={patient.data} at={at} shiftStart={data.shiftStart} shiftEnd={data.shiftEnd} />
+            <PatientDetail
+              series={patient.data}
+              at={at}
+              shiftStart={data.shiftStart}
+              shiftEnd={data.shiftEnd}
+              actions={
+                trySession && patient.data.patient.id === trySession.patientId ? (
+                  <ActionPanel
+                    patientName={patient.data.patient.name}
+                    bedLabel={bedLabel(patient.data.patient.bed, patient.data.patient.id)}
+                    at={at}
+                    lastActionAt={trySession.lastActionAt}
+                    state={patient.data.escalation}
+                    onAction={act}
+                  />
+                ) : undefined
+              }
+            />
           ) : (
             <p className="muted">{view.bed && patient.loading ? t.patientLoading : t.selectHint}</p>
           )}

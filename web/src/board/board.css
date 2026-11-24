@@ -496,3 +496,123 @@ li[data-state='done'] .chain-mark {
   padding: 3px 8px;
   justify-self: start;
 }
+
+/* Watch | Try and Try mode's banner, actions and dialog. */
+.mode {
+  display: grid;
+  gap: 3px;
+  justify-items: start;
+}
+
+.reason {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.reason.refused {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.try-message {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.try-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  background: var(--accent-soft);
+}
+
+.try-banner p {
+  margin: 0;
+  max-width: 80ch;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: var(--panel);
+  border-color: var(--accent);
+}
+
+.btn.warn {
+  color: var(--bad);
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.45);
+  z-index: 10;
+}
+
+dialog.confirm {
+  position: static;
+  width: min(460px, 100%);
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 18px;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.3);
+}
+
+dialog.confirm form {
+  display: grid;
+  gap: 12px;
+}
+
+dialog.confirm fieldset {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  padding: 8px 12px;
+}
+
+dialog.confirm label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+dialog.confirm .note-field {
+  display: grid;
+  gap: 4px;
+}
+
+dialog.confirm textarea {
+  font: inherit;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  resize: vertical;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
