@@ -27,17 +27,24 @@ export function ConfirmDialog({ title, withNote, withTier, defaultTier = 'OnCall
   const [text, setText] = useState('');
   const [tier, setTier] = useState<EscalationTier>(defaultTier);
   const first = useRef<HTMLTextAreaElement & HTMLButtonElement>(null);
+  const cancel = useRef(onCancel);
+  cancel.current = onCancel;
 
+  // Once per opening: focus the first field, close on Escape, and give focus back to whatever opened the dialog.
   useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     first.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onCancel();
+        cancel.current();
       }
     };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onCancel]);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      opener?.focus();
+    };
+  }, []);
 
   return (
     <div className="dialog-backdrop">

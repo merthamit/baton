@@ -10,6 +10,11 @@ import type { DialogResult } from './ui/ConfirmDialog';
 import { readUrlState, writeUrlState } from './url';
 import './board/board.css';
 
+/** The API's answer for a Try session it no longer has (see TryOverlay.Expired). */
+function isSessionGone(e: unknown): boolean {
+  return e instanceof ApiError && e.status === 404 && e.title === 'Try session expired';
+}
+
 interface TrySessionState {
   id: string;
   patientId: string;
@@ -39,8 +44,8 @@ export function App() {
     }
   }, [view]);
 
-  // A Try session the API no longer knows (expired, restarted) ends Try mode with a message.
-  const expired = [ward.error, patient.error].some((e) => e instanceof ApiError && e.status === 404 && trySession);
+  // A Try session the API no longer knows (expired, restarted) ends Try mode with a message; other 404s do not.
+  const expired = !!trySession && [ward.error, patient.error].some(isSessionGone);
   useEffect(() => {
     if (expired) {
       setTrySession(null);
@@ -89,7 +94,7 @@ export function App() {
       setRevision((n) => n + 1);
       return null;
     } catch (e) {
-      if (e instanceof ApiError && e.status === 404) {
+      if (isSessionGone(e)) {
         setTrySession(null);
         setTryMessage(t.tryExpired);
         return null;
@@ -143,8 +148,8 @@ export function App() {
       )}
 
       {trySession && (
-        <section className="try-banner" role="status">
-          <p>
+        <section className="try-banner" aria-label={t.modeTry}>
+          <p role="status">
             <strong>{t.tryBanner(bedLabel(tryBed?.bed, trySession.patientId), tryBed?.name ?? '')}</strong> <span>{t.tryNote}</span>
           </p>
           <button type="button" className="btn" onClick={reset}>

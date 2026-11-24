@@ -119,4 +119,16 @@ public class TryCourseTests
         Assert.Equal(senior.CallId, result.Records.OfType<Assessed>().Single(a => a.Text == "Septic").CallId);
         Assert.DoesNotContain(result.Records, r => r is Assessed a && a.Text == "Too early"); // never pinned on an earlier team
     }
+
+    [Theory]
+    [InlineData(0, 20)] // no doctor call on the card: Baton's default
+    [InlineData(1, 21)]
+    [InlineData(3, 16)]
+    [InlineData(4, 26)]
+    [InlineData(5, 26)]
+    [InlineData(6, 21)]
+    public void OnCallArrivalGap_PerStoryBed(int bedIndex, int minutes)
+    {
+        Assert.Equal(TimeSpan.FromMinutes(minutes), TryCourse.OnCallArrivalGap(Watch[bedIndex].Patient.Events));
+    }
 }

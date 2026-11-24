@@ -222,4 +222,28 @@ public class TryApiTests(WebApplicationFactory<Program> factory) : IClassFixture
 
         Assert.Equal(HttpStatusCode.BadRequest, late.StatusCode); // the last accepted moment is the latest one, never an earlier one
     }
+
+    [Fact]
+    public async Task TooManyActions_Returns400()
+    {
+        var client = ClientWith();
+        var session = await StartTry(client);
+        for (var i = 0; i < TrySessions.MaxActions; i++)
+        {
+            Assert.Equal(HttpStatusCode.OK, (await Act(client, session, "Concern", 15)).StatusCode);
+        }
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await Act(client, session, "Concern", 15)).StatusCode);
+    }
+
+    [Fact]
+    public async Task LongNote_Returns400()
+    {
+        var client = ClientWith();
+        var session = await StartTry(client);
+
+        var response = await Act(client, session, "Concern", 15, new string('x', TrySessions.MaxTextLength + 1));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
 }

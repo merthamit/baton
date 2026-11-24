@@ -20,7 +20,14 @@ public sealed class TrySession(string id, string patientId, int bedIndex, DateTi
 
     public DateTimeOffset StartedAt { get; } = startedAt;
 
-    public DateTimeOffset LastUsed { get; set; }
+    private long lastUsedTicks;
+
+    /// <summary>When the session was last used (UTC). Read and written atomically: requests arrive in parallel.</summary>
+    public DateTimeOffset LastUsed
+    {
+        get => new(Interlocked.Read(ref lastUsedTicks), TimeSpan.Zero);
+        set => Interlocked.Exchange(ref lastUsedTicks, value.UtcTicks);
+    }
 
     public object Gate { get; } = new();
 
@@ -53,6 +60,11 @@ public sealed class TrySession(string id, string patientId, int bedIndex, DateTi
 public sealed class TrySessions(TimeProvider time, BatonOptionsSnapshot settings)
 {
     public const int MaxSessions = 50;
+
+    /// <summary>Per-session limits: every request re-runs the simulation from the actions, so keep them bounded.</summary>
+    public const int MaxActions = 100;
+
+    public const int MaxTextLength = 500;
     public static readonly TimeSpan Lifetime = TimeSpan.FromHours(2);
 
     private readonly ConcurrentDictionary<string, TrySession> sessions = new(StringComparer.Ordinal);
@@ -115,6 +127,16 @@ public sealed class TrySessions(TimeProvider time, BatonOptionsSnapshot settings
 
     private string? AddLocked(TrySession session, TryAction action)
     {
+        if (session.Actions.Count >= MaxActions)
+        {
+            return $"A Try session holds at most {MaxActions} actions. Reset to start again.";
+        }
+
+        if (action.Text?.Length > MaxTextLength)
+        {
+            return $"A note can be at most {MaxTextLength} characters.";
+        }
+
         if (action.At < session.LastActionAt)
         {
             return $"An action must be at or after the last one ({session.LastActionAt:HH:mm}).";

@@ -87,4 +87,14 @@ describe('ActionPanel', () => {
 
     expect(await screen.findByText('Record the assessment before the plan.')).toBeInTheDocument();
   });
+
+  it('returns focus to the button that opened the dialog', async () => {
+    renderIn(<ActionPanel {...base} state={noChain} onAction={vi.fn().mockResolvedValue(null)} />);
+    const opener = screen.getByRole('button', { name: 'Call doctor' });
+
+    await userEvent.click(opener);
+    await userEvent.keyboard('{Escape}');
+
+    expect(document.activeElement).toBe(opener);
+  });
 });

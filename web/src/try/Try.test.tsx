@@ -93,6 +93,35 @@ describe('Try mode', () => {
     expect(starts).toHaveLength(1);
   });
 
+  it('keeps Try on when a 404 is not about the session', async () => {
+    route((url, init) => {
+      if (url.startsWith('/api/patients/synthetic-02') && url.includes('try=')) return respond(404, { title: 'Not Found' });
+      return api()(url, init);
+    });
+    renderIn(<App />);
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bed 02/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Try' })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: 'Try' }));
+
+    expect(await screen.findByText('Could not load this patient.')).toBeInTheDocument();
+    expect(screen.getByText(/Try: Bed 02/)).toBeInTheDocument();
+  });
+
+  it('announces the banner text without the Reset button inside the live region', async () => {
+    route(api());
+    renderIn(<App />);
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bed 02/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Try' })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: 'Try' }));
+
+    await screen.findByText(/Try: Bed 02/);
+    const status = screen.getAllByRole('status').find((el) => /Try: Bed 02/.test(el.textContent ?? ''))!;
+    expect(status).toBeDefined();
+    expect(status.querySelector('button')).toBeNull();
+  });
+
   it('returns to Watch with a message when the session has expired', async () => {
     route(api(true, () => respond(404, { title: 'Try session expired' })));
     renderIn(<App />);
