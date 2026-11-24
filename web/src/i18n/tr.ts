@@ -106,6 +106,7 @@ export const tr: Messages = {
   recPlanned: 'Plan',
   simulated: 'simüle',
   roleNurse: 'Servis hemşiresi',
+  roleYou: 'Siz (hemşire)',
   roleOnCall: 'Nöbetçi hekim',
   roleSenior: 'Kıdemli hekim',
   roleCriticalCare: 'Kritik bakım ekibi',

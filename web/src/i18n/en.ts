@@ -106,6 +106,7 @@ export const en = {
   recPlanned: 'Plan',
   simulated: 'simulated',
   roleNurse: 'Ward nurse',
+  roleYou: 'You (nurse)',
   roleOnCall: 'On-call doctor',
   roleSenior: 'Senior doctor',
   roleCriticalCare: 'Critical care team',

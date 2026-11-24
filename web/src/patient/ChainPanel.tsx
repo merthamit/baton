@@ -8,6 +8,7 @@ import { ChainStrip } from '../board/ChainStrip';
 function role(by: string, t: Messages): string {
   if (by.startsWith('RelatedPerson/')) return t.roleFamily;
   if (by.startsWith('Patient/')) return t.rolePatient;
+  if (by.endsWith('synthetic-you')) return t.roleYou;
   if (by.endsWith('synthetic-oncall')) return t.roleOnCall;
   if (by.endsWith('synthetic-senior')) return t.roleSenior;
   if (by.endsWith('synthetic-cct')) return t.roleCriticalCare;

@@ -29,7 +29,7 @@ when the numbers look fine, and drafts a handover where every sentence points ba
 | **Escalation chain** | Concern → called → arrived → assessed → plan, time-stamped and stored in FHIR. Response targets from NEWS2 guidance (60 min for 5–6 or a single 3, 30 min for 7+, configurable); when a target passes, Baton suggests the next tier but never calls anyone. Patients and families can raise a concern too. |
 | **SBAR handover** | Rule-based handover draft built from FHIR data. Every sentence links to its source. Nothing is final until a nurse confirms it. |
 
-Status: **in development.** Done so far: NEWS2 engine, FHIR reading/writing, synthetic ward generator, FHIR server, API, the ward board and the escalation chain (watch mode).
+Status: **in development.** Done so far: NEWS2 engine, FHIR reading/writing, synthetic ward generator, FHIR server, API, the ward board and the escalation chain, with a Try mode where you play the nurse.
 
 ## How the score is calculated
 
@@ -104,6 +104,12 @@ npm ci
 npm run dev        # http://localhost:5173, proxies /api to the API on port 5188
 npm test           # component tests (Vitest)
 ```
+
+**Try mode** (in-memory data only): choose a bed, press *Try* and you are the nurse from that moment. Raise a concern,
+call a doctor (on-call, senior or critical care), record the assessment and plan; each action asks you to confirm the
+patient and bed. The doctor's arrival is simulated, and a late call delays treatment so the patient gets worse on the
+chart (calling earlier than the scenario does not make them better than its timely course). Endpoints: `POST /api/try`,
+`POST /api/try/{id}/actions`, `DELETE /api/try/{id}`, and `?try={id}` on the ward and patient endpoints.
 
 The escalation chain is read from FHIR for both data sources. When the API reads from the FHIR server, other events
 (Baton's alerts, notes) are not stored there yet, and the patient screen says so.

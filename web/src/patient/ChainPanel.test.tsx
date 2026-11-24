@@ -32,6 +32,14 @@ describe('ChainPanel', () => {
     expect(within(last).getByText('Critical care team')).toBeInTheDocument();
   });
 
+  it('names Try mode actions as yours', () => {
+    const tryRecords: EscalationRecordView[] = [
+      { at: '2026-11-24T01:00:00+03:00', kind: 'Called', by: 'Practitioner/synthetic-you', tier: 'OnCallDoctor', text: null, simulated: null },
+    ];
+    renderIn(<ChainPanel state={chain()} records={tryRecords} />);
+    expect(screen.getByText('You (nurse)')).toBeInTheDocument();
+  });
+
   it('says when there is no escalation yet', () => {
     renderIn(<ChainPanel state={noChain} records={[]} />);
     expect(screen.getByText('No escalation yet.')).toBeInTheDocument();
