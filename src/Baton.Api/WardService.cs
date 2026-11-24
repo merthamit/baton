@@ -73,16 +73,19 @@ public sealed record PatientSeries(
 /// </summary>
 public sealed class WardService(IVitalSignsSource source, EscalationOptions? escalationOptions = null)
 {
+    private readonly IVitalSignsSource source = source;
+
     private readonly EscalationOptions options = escalationOptions ?? new EscalationOptions();
 
     public static readonly TimeSpan MaxReadingAge = TimeSpan.FromHours(13);
 
-    public async Task<IReadOnlyList<BedSummary>> GetWardAsync(DateTimeOffset at, CancellationToken cancellationToken, string? language = null)
+    public async Task<IReadOnlyList<BedSummary>> GetWardAsync(DateTimeOffset at, CancellationToken cancellationToken, string? language = null, IVitalSignsSource? overlay = null)
     {
+        var source = overlay ?? this.source;
         var result = new List<BedSummary>();
         foreach (var patient in await source.GetPatientsAsync(cancellationToken))
         {
-            var points = await ScoreAsync(patient, at, cancellationToken);
+            var points = await ScoreAsync(source, patient, at, cancellationToken);
             var events = await source.GetEventsAsync(patient.Id, at, cancellationToken);
             var records = await source.GetEscalationAsync(patient.Id, at, language, cancellationToken);
             var latest = points.Count > 0 ? points[^1] : null;
@@ -140,8 +143,9 @@ public sealed class WardService(IVitalSignsSource source, EscalationOptions? esc
         return born.AddYears(age) > today ? age - 1 : age;
     }
 
-    public async Task<PatientSeries?> GetPatientAsync(string patientId, DateTimeOffset at, CancellationToken cancellationToken, string? language = null)
+    public async Task<PatientSeries?> GetPatientAsync(string patientId, DateTimeOffset at, CancellationToken cancellationToken, string? language = null, IVitalSignsSource? overlay = null)
     {
+        var source = overlay ?? this.source;
         var patient = (await source.GetPatientsAsync(cancellationToken)).FirstOrDefault(p => p.Id == patientId);
         if (patient is null)
         {
@@ -150,7 +154,7 @@ public sealed class WardService(IVitalSignsSource source, EscalationOptions? esc
 
         var events = await source.GetEventsAsync(patient.Id, at, cancellationToken);
         var records = await source.GetEscalationAsync(patient.Id, at, language, cancellationToken);
-        var points = await ScoreAsync(patient, at, cancellationToken);
+        var points = await ScoreAsync(source, patient, at, cancellationToken);
         return new PatientSeries(
             patient,
             AgeAt(patient.BirthDate, at),
@@ -187,7 +191,7 @@ public sealed class WardService(IVitalSignsSource source, EscalationOptions? esc
     public static DateTimeOffset? TimeOf(Observation observation) =>
         observation.Effective is FhirDateTime dt && dt.TryToDateTimeOffset(out var value) ? value : null;
 
-    private async Task<List<ScorePoint>> ScoreAsync(PatientRef patient, DateTimeOffset at, CancellationToken cancellationToken)
+    private static async Task<List<ScorePoint>> ScoreAsync(IVitalSignsSource source, PatientRef patient, DateTimeOffset at, CancellationToken cancellationToken)
     {
         var observations = await source.GetObservationsAsync(patient.Id, at, cancellationToken);
         var times = observations

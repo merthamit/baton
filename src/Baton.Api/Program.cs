@@ -35,6 +35,13 @@ builder.Services.AddSingleton(sp =>
     };
 });
 builder.Services.AddSingleton<WardService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton(sp =>
+{
+    var options = sp.GetRequiredService<IOptions<BatonOptions>>().Value;
+    return new BatonOptionsSnapshot(options.ShiftStart, options.Seed);
+});
+builder.Services.AddSingleton<TrySessions>();
 
 var app = builder.Build();
 
@@ -57,40 +64,117 @@ app.MapGet("/health", () => Results.Ok(new
 {
     status = "ok",
     source = settings.SourceName,
+    tryAvailable = source is InMemoryVitalSignsSource,
     fhirBaseUrl = settings.SourceName == BatonOptions.Hapi ? settings.FhirBaseUrl : null,
     note = "Synthetic data. Not a medical device.",
 }));
 
-app.MapGet("/api/ward", async (string? at, string? lang, WardService ward, CancellationToken ct) =>
+app.MapGet("/api/ward", async (string? at, string? lang, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, WardService ward, TrySessions tries, CancellationToken ct) =>
 {
     if (!TimeQuery.TryParse(at, settings.DefaultAt, out var moment, out var error))
     {
         return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
     }
 
+    var (overlay, tryProblem) = TryOverlay.Resolve(trySession, tries, source);
+    if (tryProblem is not null)
+    {
+        return tryProblem;
+    }
+
     moment = moment.ToOffset(settings.ShiftStart.Offset); // answer in ward time, whatever offset was sent
 
     return await FhirServerProblem.Guard(async () =>
-        Results.Ok(new WardResponse(moment, settings.SourceName, settings.ShiftStart, settings.ShiftStart.AddHours(24), await ward.GetWardAsync(moment, ct, Language.From(lang)))));
+        Results.Ok(new WardResponse(moment, settings.SourceName, settings.ShiftStart, settings.ShiftStart.AddHours(24), await ward.GetWardAsync(moment, ct, Language.From(lang), overlay))));
 });
 
-app.MapGet("/api/patients/{id}", async (string id, string? at, string? lang, WardService ward, CancellationToken ct) =>
+app.MapGet("/api/patients/{id}", async (string id, string? at, string? lang, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, WardService ward, TrySessions tries, CancellationToken ct) =>
 {
     if (!TimeQuery.TryParse(at, settings.DefaultAt, out var moment, out var error))
     {
         return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
     }
 
+    var (overlay, tryProblem) = TryOverlay.Resolve(trySession, tries, source);
+    if (tryProblem is not null)
+    {
+        return tryProblem;
+    }
+
     moment = moment.ToOffset(settings.ShiftStart.Offset); // answer in ward time, whatever offset was sent
 
     return await FhirServerProblem.Guard(async () =>
-        await ward.GetPatientAsync(id, moment, ct, Language.From(lang)) is { } series ? Results.Ok(series) : Results.NotFound());
+        await ward.GetPatientAsync(id, moment, ct, Language.From(lang), overlay) is { } series ? Results.Ok(series) : Results.NotFound());
 });
+
+app.MapPost("/api/try", async (TryStartRequest body, TrySessions tries, CancellationToken ct) =>
+{
+    if (source is not InMemoryVitalSignsSource)
+    {
+        return Results.Problem("Try mode needs the in-memory data source.", statusCode: StatusCodes.Status409Conflict, title: "Try mode unavailable");
+    }
+
+    var patients = await source.GetPatientsAsync(ct);
+    if (TrySessions.BedIndexOf(body.PatientId) is not { } bedIndex || patients.All(p => p.Id != body.PatientId))
+    {
+        return Results.Problem($"Unknown patient '{body.PatientId}'.", statusCode: StatusCodes.Status404NotFound);
+    }
+
+    var at = body.At.ToOffset(settings.ShiftStart.Offset);
+    if (at < tries.ShiftStart || at >= tries.ShiftEnd)
+    {
+        return Results.Problem("Try must start inside the shift.", statusCode: StatusCodes.Status400BadRequest);
+    }
+
+    var session = tries.Start(body.PatientId, bedIndex, at);
+    return Results.Created($"/api/try/{session.Id}", new { sessionId = session.Id, patientId = session.PatientId, startedAt = session.StartedAt });
+});
+
+app.MapPost("/api/try/{id}/actions", (string id, TryActionRequest body, TrySessions tries) =>
+{
+    if (tries.Get(id) is not { } session)
+    {
+        return TryOverlay.Expired();
+    }
+
+    var action = new Baton.Scenarios.TryAction(body.Kind, body.At.ToOffset(settings.ShiftStart.Offset), body.Text, body.Tier);
+    return tries.Add(session, action) is { } broken
+        ? Results.Problem(broken, statusCode: StatusCodes.Status400BadRequest, title: "Action not allowed")
+        : Results.Ok(new { lastActionAt = session.LastActionAt });
+});
+
+app.MapDelete("/api/try/{id}", (string id, TrySessions tries) => tries.Remove(id) ? Results.NoContent() : TryOverlay.Expired());
 
 GC.KeepAlive(source);
 app.Run();
 
 public sealed record WardResponse(DateTimeOffset At, string Source, DateTimeOffset ShiftStart, DateTimeOffset ShiftEnd, IReadOnlyList<BedSummary> Beds);
+
+public sealed record TryStartRequest(string PatientId, DateTimeOffset At);
+
+public sealed record TryActionRequest(Baton.Scenarios.TryActionKind Kind, DateTimeOffset At, string? Text, Baton.Core.Escalation.EscalationTier? Tier);
+
+/// <summary>Turns a request's <c>try</c> session into the ward overlay, or into the problem to answer with.</summary>
+public static class TryOverlay
+{
+    public static IResult Expired() =>
+        Results.Problem("Try session expired or unknown. Start Try again.", statusCode: StatusCodes.Status404NotFound, title: "Try session expired");
+
+    public static (IVitalSignsSource? Overlay, IResult? Problem) Resolve(string? sessionId, TrySessions tries, IVitalSignsSource source)
+    {
+        if (string.IsNullOrEmpty(sessionId))
+        {
+            return (null, null);
+        }
+
+        if (tries.Get(sessionId) is not { } session)
+        {
+            return (null, Expired());
+        }
+
+        return (new TryOverlaySource(source, tries.Run(session), tries.ShiftStart), null);
+    }
+}
 
 /// <summary>The data language a request asks for: "tr" (Turkish translations) or null (the original English).</summary>
 public static class Language
