@@ -47,16 +47,18 @@ export function SbarPanel({ row, canConfirm, onConfirm }: SbarPanelProps) {
         <Part key={section.part} title={partLabel(section.part, t)}>
           {section.sentences.map((sentence, i) => (
             <li key={i}>
-              <span>{sentence.text}</span> <SourceButton sources={sentence.sources} />
+              <span id={`${headingId}-${section.part}-${i}`}>{sentence.text}</span>{' '}
+              <SourceButton sources={sentence.sources} describedBy={`${headingId}-${section.part}-${i}`} />
             </li>
           ))}
         </Part>
       ))}
       {row.sbar.missing.length > 0 && (
         <Part title={t.sbarMissing} tone="bad">
-          {row.sbar.missing.map((item) => (
+          {row.sbar.missing.map((item, i) => (
             <li key={item.kind + item.text}>
-              <span>{item.text}</span> <SourceButton sources={item.sources} />
+              <span id={`${headingId}-missing-${i}`}>{item.text}</span>{' '}
+              <SourceButton sources={item.sources} describedBy={`${headingId}-missing-${i}`} />
             </li>
           ))}
         </Part>

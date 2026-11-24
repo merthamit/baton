@@ -11,6 +11,16 @@ const sources = [
 ];
 
 describe('SourceButton', () => {
+  it('is described by the sentence it belongs to', () => {
+    renderIn(
+      <p>
+        <span id="s1">NEWS2 3 Low at 07:00.</span> <SourceButton sources={sources} describedBy="s1" />
+      </p>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Source' })).toHaveAccessibleDescription('NEWS2 3 Low at 07:00.');
+  });
+
   it('opens and closes the source popover with Esc, returning focus', async () => {
     renderIn(<SourceButton sources={sources} />);
     const button = screen.getByRole('button', { name: 'Source' });

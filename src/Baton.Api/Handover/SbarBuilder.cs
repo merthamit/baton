@@ -37,8 +37,23 @@ public static class SbarBuilder
             StateLine(context),
             context.Latest?.Total,
             context.Latest?.Risk,
-            context.Peak?.Total);
+            context.Peak?.Total,
+            FloorRisk(context.Latest));
     }
+
+    /// <summary>The risk a score already shows: its own, or for an incomplete set the least its known parts imply.</summary>
+    private static RiskLevel? FloorRisk(ScorePoint? point) => point switch
+    {
+        null => null,
+        { Risk: { } risk } => risk,
+        { MinimumTotal: >= 7 } => RiskLevel.High,
+        { MinimumTotal: >= 5 } => RiskLevel.Medium,
+        { ParametersScoring3.Count: > 0 } => RiskLevel.LowMedium,
+        _ => RiskLevel.Low,
+    };
+
+    /// <summary>Asks for escalation: risk Low–medium or higher, or an incomplete set whose known parts already do.</summary>
+    private static bool Raised(ScorePoint point) => FloorRisk(point) is RiskLevel.LowMedium or RiskLevel.Medium or RiskLevel.High;
 
     /// <summary>What every part reads: the window, its points and records, and how to render times.</summary>
     private sealed class Context
@@ -132,9 +147,11 @@ public static class SbarBuilder
         {
             // The episode goes on: when a score in the window still asks for escalation, the last call before the
             // window belongs to this handover too (the team already involved), so the reader sees who came.
-            var episode = Points.Any(p => p.Risk is RiskLevel.LowMedium or RiskLevel.Medium or RiskLevel.High)
-                ? Records.OfType<Called>().LastOrDefault(call => call.At < WindowStart)
-                : null;
+            // Only while the scores stayed raised: a Low score between that call and the window's first raised score
+            // ends the episode, and a new deterioration is new.
+            var firstRaised = Points.FirstOrDefault(Raised);
+            var before = Records.OfType<Called>().LastOrDefault(call => call.At < WindowStart);
+            var episode = firstRaised is not null && before is not null && !Interrupted(before.At, firstRaised.At) ? before : null;
             return Records.OfType<Called>()
                 .Where(call =>
                 {
@@ -147,6 +164,10 @@ public static class SbarBuilder
                 })
                 .ToList();
         }
+
+        /// <summary>True when a score between the two moments did not ask for escalation (the episode settled).</summary>
+        public bool Interrupted(DateTimeOffset from, DateTimeOffset to) =>
+            Input.Points.Any(q => q.At > from && q.At < to && !Raised(q));
 
         public static string? CallIdOf(EscalationRecord record) => record switch
         {
@@ -313,6 +334,12 @@ public static class SbarBuilder
             return Say(t.TakeObservations, c.PatientSources());
         }
 
+        if (c.Latest.Total is null)
+        {
+            var parts = c.Latest.Problems.Select(p => p.Parameter).Distinct().Select(t.Parameter).ToList();
+            return Say(t.CompleteSet(parts.Count > 0 ? string.Join(", ", parts) : null), latest);
+        }
+
         if (risk == RiskLevel.High && calls.All(call => call.Tier != EscalationTier.CriticalCare))
         {
             return Say(t.CallCriticalCareNow, latest);
@@ -356,9 +383,9 @@ public static class SbarBuilder
         // episode before it (a call already made in the window, answered or still open, covers the scores after it;
         // a 7+ still needs critical care, below).
         var uncovered = c.Points.FirstOrDefault(p =>
-            p.Risk is RiskLevel.LowMedium or RiskLevel.Medium or RiskLevel.High
+            Raised(p)
             && !calls.Any(call => call.At >= p.At)
-            && !c.WindowCalls.Any(call => call.CalledAt <= p.At));
+            && !c.WindowCalls.Any(call => call.CalledAt <= p.At && !c.Interrupted(call.CalledAt, p.At)));
         if (uncovered is not null)
         {
             missing.Add(new(MissingKind.NoCallAfterScore, t.MissingNoCall(uncovered.Total ?? uncovered.MinimumTotal ?? 0, c.Time(uncovered.At)), c.Of(uncovered)));
@@ -419,6 +446,11 @@ public static class SbarBuilder
             return t.StateNoObservations;
         }
 
-        return c.Latest.Risk is null or RiskLevel.Low ? t.StateStable : t.StateNotEscalated;
+        if (c.Latest.Total is null)
+        {
+            return t.StateIncomplete;
+        }
+
+        return c.Points.Any(Raised) ? t.StateNotEscalated : t.StateStable;
     }
 }

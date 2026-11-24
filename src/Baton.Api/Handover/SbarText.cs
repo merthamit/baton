@@ -122,6 +122,14 @@ internal sealed class SbarText
         (true, true) => $"Sonraki ölçüm {time} — {overdueMinutes} dk gecikti",
     };
 
+    public string CompleteSet(string? parameters) => (tr, parameters) switch
+    {
+        (false, null) => "Complete the observation set now",
+        (false, { } p) => $"Complete the observation set now: {p}",
+        (true, null) => "Ölçüm setini hemen tamamlayın",
+        (true, { } p) => $"Ölçüm setini hemen tamamlayın: {p}",
+    };
+
     public string TakeObservations => tr ? "Hemen tam bir ölçüm seti alın" : "Take a full set of observations now";
 
     public string CallCriticalCareNow => tr ? "Puan 7 ve üstü: kritik bakım ekibini hemen çağırın" : "Score 7+: call the critical care team now";
@@ -188,6 +196,8 @@ internal sealed class SbarText
         tr ? $"{Tier(tier)} çağrıldı {time}, {minutes} dk bekliyor" : $"{Tier(tier)} called {time}, waiting {minutes} min";
 
     public string StateStable => tr ? "Stabil" : "Stable";
+
+    public string StateIncomplete => tr ? "Ölçüm seti eksik" : "Set incomplete";
 
     public string StateNotEscalated => tr ? "Çağrı yapılmadı" : "Not escalated";
 

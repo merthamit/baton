@@ -265,6 +265,7 @@ public class SbarBuilderTests
 
     private static string Contingency(Sbar sbar) =>
         Texts(sbar, SbarPart.Recommendation).Single(t => t.StartsWith("If", StringComparison.Ordinal) || t.StartsWith("Take", StringComparison.Ordinal)
+            || t.StartsWith("Complete", StringComparison.Ordinal)
             || t.StartsWith("Score 7+", StringComparison.Ordinal) || t.StartsWith("Target passed", StringComparison.Ordinal));
 
     [Fact]
@@ -395,6 +396,62 @@ public class SbarBuilderTests
         var sbar = SbarBuilder.Build(Input(points, records), null);
 
         Assert.DoesNotContain(sbar.Missing, m => m.Kind == MissingKind.NoCallAfterScore);
+    }
+
+    [Fact]
+    public void NewDeteriorationAfterALowSpellIsNotCovered()
+    {
+        // Answered call at 21:00, then hours of Low, then a new 6 at 03:00 with nobody called: that is a gap.
+        var records = new EscalationRecord[]
+        {
+            new Called(T(23, 21), Nurse, "call-1", EscalationTier.OnCallDoctor),
+            new Arrived(T(23, 21, 20), Oncall, "call-1", false),
+            new Assessed(T(23, 21, 30), Oncall, "call-1", "Chest infection"),
+            new Planned(T(23, 21, 40), Oncall, "call-1", "Antibiotics"),
+        };
+        var points = new[] { Point(T(23, 20, 50), 5, RiskLevel.Medium), Point(T(23, 23), 1, RiskLevel.Low), Point(T(24, 3), 6, RiskLevel.Medium) };
+        var sbar = SbarBuilder.Build(Input(points, records), null);
+
+        Assert.Equal("No call after NEWS2 6 at 03:00", sbar.Missing.Single(m => m.Kind == MissingKind.NoCallAfterScore).Text);
+    }
+
+    [Fact]
+    public void OldCallIsNotPulledInAfterALowSpell()
+    {
+        // Yesterday's call (10:00) was answered and the patient settled; a new 6 at 03:00 is a new episode.
+        var records = new EscalationRecord[]
+        {
+            new Called(T(23, 10), Nurse, "call-1", EscalationTier.OnCallDoctor),
+            new Arrived(T(23, 10, 20), Oncall, "call-1", false),
+            new Planned(T(23, 11), Oncall, "call-1", "Fluids"),
+        };
+        var points = new[] { Point(T(23, 9, 50), 5, RiskLevel.Medium), Point(T(23, 21), 1, RiskLevel.Low), Point(T(24, 3), 6, RiskLevel.Medium) };
+        var sbar = SbarBuilder.Build(Input(points, records), null);
+
+        Assert.Equal(["No escalation this shift."], Texts(sbar, SbarPart.Assessment));
+        Assert.Contains(sbar.Missing, m => m.Kind == MissingKind.NoCallAfterScore);
+        Assert.Equal("Not escalated", sbar.StateLine);
+    }
+
+    [Fact]
+    public void IncompleteSetIsNotCalledStable()
+    {
+        var problems = new List<News2Problem> { new(News2Parameter.Temperature, ProblemCode.Missing, "not measured") };
+        var incomplete = Point(T(24, 7), null, null, problems: problems) with { MinimumTotal = 5, ParametersScoring3 = [News2Parameter.RespirationRate] };
+        var sbar = SbarBuilder.Build(Input([incomplete]), null);
+
+        Assert.Equal("Set incomplete", sbar.StateLine);
+        Assert.Equal("Complete the observation set now: Temp.", Contingency(sbar));
+        Assert.Contains(sbar.Missing, m => m.Kind == MissingKind.NoCallAfterScore);
+        Assert.Equal(RiskLevel.Medium, sbar.FloorRisk);
+    }
+
+    [Fact]
+    public void PeakedButNotEscalatedIsNotStable()
+    {
+        var sbar = SbarBuilder.Build(Input([Point(T(24, 2), 7, RiskLevel.High), Point(T(24, 7), 2, RiskLevel.Low)]), null);
+
+        Assert.Equal("Not escalated", sbar.StateLine);
     }
 
     [Fact]

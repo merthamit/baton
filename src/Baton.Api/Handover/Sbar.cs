@@ -36,6 +36,8 @@ public sealed record MissingItem(MissingKind Kind, string Text, IReadOnlyList<So
 /// <summary>
 /// One patient's rule-based handover at <see cref="At"/>, covering <see cref="WindowStart"/> to <see cref="At"/>.
 /// Sentences are rendered in <see cref="Language"/> ("en" or "tr"); the stored document carries exactly these texts.
+/// <see cref="FloorRisk"/> is the current risk, or for an incomplete set the least risk it already shows (its minimum
+/// total, a parameter scoring 3), so an incomplete set never sorts below a calm one.
 /// </summary>
 public sealed record Sbar(
     DateTimeOffset At,
@@ -46,7 +48,8 @@ public sealed record Sbar(
     string StateLine,
     int? CurrentTotal,
     RiskLevel? CurrentRisk,
-    int? PeakTotal);
+    int? PeakTotal,
+    RiskLevel? FloorRisk);
 
 /// <summary>Everything the builder reads for one patient. Records and points must already be limited to <c>At</c>.</summary>
 public sealed record SbarInput(

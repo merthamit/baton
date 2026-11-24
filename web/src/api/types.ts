@@ -216,6 +216,8 @@ export interface Sbar {
   currentTotal: number | null;
   currentRisk: RiskLevel | null;
   peakTotal: number | null;
+  /** The risk an incomplete set already shows (the API sorts by it); equals currentRisk when scored. */
+  floorRisk: RiskLevel | null;
 }
 
 export interface ConfirmedHandover {

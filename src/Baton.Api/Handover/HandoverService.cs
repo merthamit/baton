@@ -59,14 +59,15 @@ public sealed class HandoverService(WardService ward, IVitalSignsSource source, 
     }
 
     /// <summary>
-    /// Sickest first: current risk (High, Medium, Low–medium, Low, unscored last); within a risk, rows with missing items
+    /// Sickest first: current risk (High, Medium, Low–medium, Low; an incomplete set by the risk it already shows, unscored
+    /// last); within a risk, rows with missing items
     /// first, then the higher current score, then the higher peak of the window, then the bed.
     /// </summary>
     public static IReadOnlyList<HandoverRow> Order(IEnumerable<HandoverRow> rows)
     {
         ArgumentNullException.ThrowIfNull(rows);
         return rows
-            .OrderByDescending(r => Rank(r.Sbar.CurrentRisk))
+            .OrderByDescending(r => Rank(r.Sbar.CurrentRisk ?? r.Sbar.FloorRisk))
             .ThenByDescending(r => r.Sbar.Missing.Count > 0)
             .ThenByDescending(r => r.Sbar.CurrentTotal ?? -1)
             .ThenByDescending(r => r.Sbar.PeakTotal ?? -1)

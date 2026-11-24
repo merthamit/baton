@@ -38,6 +38,7 @@ export function sbar(overrides: Partial<Sbar> = {}): Sbar {
     currentTotal: 3,
     currentRisk: 'Low',
     peakTotal: 10,
+    floorRisk: 'Low',
     ...overrides,
   };
 }

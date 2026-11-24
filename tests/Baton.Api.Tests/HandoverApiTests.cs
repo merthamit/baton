@@ -1,3 +1,4 @@
+#nullable disable warnings
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -60,7 +61,7 @@ public class HandoverApiTests(WebApplicationFactory<Program> factory) : IClassFi
     {
         static HandoverRow RowOf(string bed, RiskLevel? risk, int? total, bool missing, int? peak = null) => new(
             $"synthetic-{bed}", bed, bed,
-            new Sbar(At(24), At(12), "en", [], missing ? [new MissingItem(MissingKind.NoPlan, "No plan", [])] : [], "", total, risk, peak ?? total),
+            new Sbar(At(24), At(12), "en", [], missing ? [new MissingItem(MissingKind.NoPlan, "No plan", [])] : [], "", total, risk, peak ?? total, risk),
             null, false);
 
         var ordered = HandoverService.Order(
@@ -75,6 +76,68 @@ public class HandoverApiTests(WebApplicationFactory<Program> factory) : IClassFi
         ]);
 
         Assert.Equal(["04", "03", "02", "06", "07", "01", "05"], ordered.Select(r => r.Bed));
+    }
+
+    [Fact]
+    public void AnIncompleteSetRanksByWhatItAlreadyShows()
+    {
+        HandoverRow RowOf(string bed, RiskLevel? risk, RiskLevel? floor) => new(
+            $"synthetic-{bed}", bed, bed, new Sbar(At(24), At(12), "en", [], [], "", null, risk, null, floor), null, false);
+
+        var ordered = HandoverService.Order([RowOf("01", RiskLevel.Low, RiskLevel.Low), RowOf("02", null, RiskLevel.Medium), RowOf("03", RiskLevel.LowMedium, RiskLevel.LowMedium)]);
+
+        Assert.Equal(["02", "03", "01"], ordered.Select(r => r.Bed));
+    }
+
+    [Fact]
+    public async Task RealDocumentValidatesAndResolvesEveryReference()
+    {
+        using var app = factory.WithWebHostBuilder(b =>
+        {
+            b.UseSetting("Baton:Source", "InMemory");
+            b.UseSetting("Baton:Seed", "42");
+        });
+        var ward = (WardService)app.Services.GetService(typeof(WardService))!;
+        var built = (await ward.GetSbarInputAsync("synthetic-02", At(24), ShiftStart, null, null, CancellationToken.None))!.Value;
+        var document = HandoverDocument.Build(SbarBuilder.Build(built.Input, null), built.Snapshot);
+
+        var inside = document.Entry.Select(e => $"{e.Resource.TypeName}/{e.Resource.Id}").ToHashSet(StringComparer.Ordinal);
+        var references = document.Entry.SelectMany(e => ReferencesIn(e.Resource)).Distinct().ToList();
+        Assert.Contains(document.Entry, e => e.Resource is Hl7.Fhir.Model.Task);
+        Assert.Contains(document.Entry, e => e.Resource is Hl7.Fhir.Model.Flag);
+        Assert.All(references, r => Assert.Contains(r, inside));
+
+        var errors = Baton.Tests.Shared.FhirValidation.Validator.Validate(document).Issue
+            .Where(i => i.Severity is Hl7.Fhir.Model.OperationOutcome.IssueSeverity.Error or Hl7.Fhir.Model.OperationOutcome.IssueSeverity.Fatal)
+            .Select(i => $"{i.Expression.FirstOrDefault()}: {i.Details?.Text ?? i.Diagnostics}")
+            .ToList();
+        Assert.True(errors.Count == 0, string.Join(Environment.NewLine, errors));
+        HandoverDocumentTests.WriteExample(document);
+    }
+
+    private static IEnumerable<string> ReferencesIn(Hl7.Fhir.Model.Base element)
+    {
+        foreach (var (_, value) in element.EnumerateElements())
+        {
+            IEnumerable<Hl7.Fhir.Model.Base> children = value switch
+            {
+                Hl7.Fhir.Model.Base single => [single],
+                IEnumerable<Hl7.Fhir.Model.Base> many => many,
+                _ => [],
+            };
+            foreach (var child in children)
+            {
+                if (child is Hl7.Fhir.Model.ResourceReference { Reference: { } reference } && reference.Contains('/', StringComparison.Ordinal))
+                {
+                    yield return reference;
+                }
+
+                foreach (var nested in ReferencesIn(child))
+                {
+                    yield return nested;
+                }
+            }
+        }
     }
 
     [Fact]

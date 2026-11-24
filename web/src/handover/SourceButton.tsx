@@ -6,7 +6,7 @@ import { useT } from '../i18n/LanguageProvider';
  * A small "Source" button after a sentence. It opens a list of the records the sentence was built from (label and
  * FHIR reference), grouped by label; Esc closes it and focus goes back to the button.
  */
-export function SourceButton({ sources }: { sources: SourceRef[] }) {
+export function SourceButton({ sources, describedBy }: { sources: SourceRef[]; describedBy?: string }) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const id = useId();
@@ -33,7 +33,15 @@ export function SourceButton({ sources }: { sources: SourceRef[] }) {
 
   return (
     <span className="source">
-      <button ref={button} type="button" className="source-btn" aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)}>
+      <button
+        ref={button}
+        type="button"
+        className="source-btn"
+        aria-expanded={open}
+        aria-controls={id}
+        aria-describedby={describedBy}
+        onClick={() => setOpen((o) => !o)}
+      >
         {t.source}
       </button>
       {open && (

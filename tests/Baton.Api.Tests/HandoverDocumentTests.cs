@@ -147,7 +147,6 @@ public class HandoverDocumentTests
 
         Assert.Equal($"Bundle/{bundle.Id}", provenance.Target.Single().Reference);
         Assert.Equal("Device/baton", provenance.Agent.Single().Who.Reference);
-        WriteExample(bundle);
     }
 
     [Fact]
@@ -161,7 +160,7 @@ public class HandoverDocumentTests
     }
 
     // CI runs the official HL7 validator on artifacts/fhir-examples.
-    private static void WriteExample(Bundle bundle)
+    internal static void WriteExample(Bundle bundle)
     {
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "Baton.slnx")))
