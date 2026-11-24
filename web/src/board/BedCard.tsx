@@ -6,6 +6,7 @@ import type { Messages } from '../i18n/en';
 import { parameterLabel, readingOf, riskText, shapeOf, tierOf } from '../risk';
 import { clock, minutesBetween } from '../time';
 import { Icon, Shape, type IconName } from '../ui/Icon';
+import { ChainStrip } from './ChainStrip';
 
 interface BedCardProps {
   bed: BedSummary;
@@ -49,10 +50,6 @@ export function BedCard({ bed, selected, onSelect }: BedCardProps) {
   const label = bed.bed ? t.bed(bed.bed) : bed.patientId;
   const title = `${label} · ${bed.name}${bed.age !== null ? `, ${t.age(bed.age)}` : ''}`;
 
-  const waiting =
-    escalation.doctorCalledAt && escalation.waitingMinutes !== null
-      ? t.doctorCalledWaiting(clock(escalation.doctorCalledAt), escalation.waitingMinutes)
-      : null;
   const overdue = bed.overdueMinutes !== null && bed.overdueMinutes > 0;
 
   return (
@@ -130,20 +127,9 @@ export function BedCard({ bed, selected, onSelect }: BedCardProps) {
               {t.concern(clock(escalation.concernRaisedAt))}
             </Chip>
           )}
-          {waiting && (
-            <Chip icon="phone" tone="bad">
-              {waiting}
-            </Chip>
-          )}
-          {!waiting && escalation.doctorArrivedAt && <Chip icon="doctor">{t.doctorArrived(clock(escalation.doctorArrivedAt))}</Chip>}
-          {escalation.criticalCareCalledAt && (
-            <Chip icon="critical" tone="bad">
-              {t.criticalCare(clock(escalation.criticalCareCalledAt))}
-            </Chip>
-          )}
           {latest?.input.spO2Scale === 'Scale2' && <Chip icon="lungs">{t.scale2}</Chip>}
-          {!bed.eventsAvailable && <span className="note">{t.eventsUnavailable}</span>}
         </span>
+        <ChainStrip state={escalation} />
       </span>
 
       <span className="bed-due" id={ids.due}>

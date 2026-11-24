@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { PatientDetail } from './PatientDetail';
-import { point } from '../fixtures';
+import { chain, point } from '../fixtures';
 import { renderIn } from '../test/render';
 import type { PatientSeries } from '../api/types';
 
@@ -46,6 +46,10 @@ function series(overrides: Partial<PatientSeries> = {}): PatientSeries {
       { at: '2026-11-23T05:00:00+03:00', kind: 'Note', text: 'Admitted overnight' },
       { at: '2026-11-23T20:15:00+03:00', kind: 'Concern', text: 'Restless, not eating, not herself' },
       { at: '2026-11-23T23:19:00+03:00', kind: 'DoctorCalled', text: 'Nurse called the on-call doctor' },
+    ],
+    escalation: chain(),
+    escalationRecords: [
+      { at: '2026-11-23T23:19:00+03:00', kind: 'Called', by: 'Practitioner/synthetic-nurse', tier: 'OnCallDoctor', text: null, simulated: null },
     ],
     ...overrides,
   };
@@ -92,6 +96,14 @@ describe('PatientDetail observations', () => {
   });
 });
 
+describe('PatientDetail escalation', () => {
+  it('shows the escalation chain panel', () => {
+    show();
+    expect(screen.getByRole('heading', { name: 'Escalation chain' })).toBeInTheDocument();
+    expect(screen.getByText('On-call doctor called')).toBeInTheDocument();
+  });
+});
+
 describe('PatientDetail events', () => {
   it('lists events with clock time, translated kind and the stored text', () => {
     show(series(), 'tr');
@@ -104,7 +116,7 @@ describe('PatientDetail events', () => {
 
   it('says when the source has no events', () => {
     show(series({ eventsAvailable: false, events: [] }));
-    expect(screen.getByText('Escalation events are not available from this data source yet')).toBeInTheDocument();
+    expect(screen.getByText('Other events (alerts, notes) are not available from this data source yet')).toBeInTheDocument();
   });
 
   it('says when nothing happened', () => {

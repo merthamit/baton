@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from './App';
-import { bed, point, ward } from './fixtures';
+import { bed, noChain, point, ward } from './fixtures';
 import { renderIn } from './test/render';
 import type { PatientSeries } from './api/types';
 
@@ -20,6 +20,8 @@ function series(id: string, bedNo: string, name: string): PatientSeries {
     points: [point()],
     eventsAvailable: true,
     events: [],
+    escalation: noChain,
+    escalationRecords: [],
   };
 }
 

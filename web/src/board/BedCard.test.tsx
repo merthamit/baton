@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BedCard } from './BedCard';
-import { bed, point } from '../fixtures';
+import { bed, chain, point } from '../fixtures';
 import { renderIn } from '../test/render';
 import type { BedSummary } from '../api/types';
 
@@ -118,32 +118,22 @@ describe('BedCard observations due', () => {
 });
 
 describe('BedCard escalation', () => {
-  it('shows the concern time and the doctor being waited for', () => {
+  it('shows the concern time and the chain strip', () => {
     card(bed());
     expect(screen.getByText('Concern 20:15')).toBeInTheDocument();
-    expect(screen.getByText('Doctor called 23:19 · waiting 11 min')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Escalation' })).toBeInTheDocument();
+    expect(screen.getByText('11 / 60 min')).toBeInTheDocument();
   });
 
-  it('shows the doctor arrived and critical care called', () => {
-    card(
-      bed({
-        escalation: {
-          concernRaisedAt: null,
-          doctorCalledAt: '2026-11-23T23:19:00+03:00',
-          doctorArrivedAt: '2026-11-23T23:40:00+03:00',
-          criticalCareCalledAt: '2026-11-24T00:20:00+03:00',
-          waitingMinutes: null,
-        },
-      }),
-    );
-    expect(screen.getByText('Doctor arrived 23:40')).toBeInTheDocument();
-    expect(screen.getByText('Critical care called 00:20')).toBeInTheDocument();
-    expect(screen.queryByText(/waiting/)).toBeNull();
+  it('no longer shows the old doctor chips', () => {
+    card(bed({ escalation: chain({ step: 'Assessed', openCall: null, minutesWaited: null }) }));
+    expect(screen.queryByText(/Doctor called .* waiting/)).toBeNull();
+    expect(screen.queryByText(/Doctor arrived/)).toBeNull();
   });
 
-  it('says when the source has no escalation events', () => {
-    card(bed({ eventsAvailable: false, concernsKnown: false }));
-    expect(screen.getByText('Escalation events are not available from this data source yet')).toBeInTheDocument();
+  it('shows no note about missing events on the card (the chain comes from FHIR for every source)', () => {
+    card(bed({ eventsAvailable: false }));
+    expect(screen.queryByText(/not available from this data source/)).toBeNull();
   });
 
   it('marks Scale 2', () => {

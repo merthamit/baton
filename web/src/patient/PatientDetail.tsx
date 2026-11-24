@@ -3,6 +3,7 @@ import { useT } from '../i18n/LanguageProvider';
 import { riskText, shapeOf, tierOf } from '../risk';
 import { clock } from '../time';
 import { Shape } from '../ui/Icon';
+import { ChainPanel } from './ChainPanel';
 import { EventTimeline } from './EventTimeline';
 import { ObservationTable } from './ObservationTable';
 import { ScoreChart } from './ScoreChart';
@@ -50,7 +51,10 @@ export function PatientDetail({ series, at, shiftStart, shiftEnd }: PatientDetai
           shiftStart={shiftStart}
           shiftEnd={shiftEnd}
         />
-        <EventTimeline events={series.events} available={series.eventsAvailable} shiftStart={shiftStart} />
+        <div className="side">
+          <ChainPanel state={series.escalation} records={series.escalationRecords} />
+          <EventTimeline events={series.events} available={series.eventsAvailable} shiftStart={shiftStart} />
+        </div>
       </div>
 
       <h3>{t.observations}</h3>

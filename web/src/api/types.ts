@@ -77,12 +77,45 @@ export interface WardEvent {
   text: string;
 }
 
-export interface Escalation {
+export type EscalationTier = 'OnCallDoctor' | 'SeniorDoctor' | 'CriticalCare';
+
+export type EscalationStep = 'None' | 'Called' | 'Arrived' | 'Assessed' | 'Planned';
+
+export interface CallState {
+  callId: string;
+  tier: EscalationTier;
+  calledAt: string;
+  targetAt: string | null;
+  arrivedAt: string | null;
+  arrivalSimulated: boolean;
+  assessedAt: string | null;
+  assessment: string | null;
+  plannedAt: string | null;
+  plan: string | null;
+}
+
+/** The escalation chain at the requested moment, computed by the API (Baton reports; it never calls anyone). */
+export interface EscalationState {
+  step: EscalationStep;
   concernRaisedAt: string | null;
-  doctorCalledAt: string | null;
-  doctorArrivedAt: string | null;
-  criticalCareCalledAt: string | null;
-  waitingMinutes: number | null;
+  concernNote: string | null;
+  patientConcernAt: string | null;
+  calls: CallState[];
+  openCall: CallState | null;
+  minutesWaited: number | null;
+  targetPassed: boolean;
+  suggestedNextTier: EscalationTier | null;
+}
+
+export type EscalationRecordKind = 'ConcernRaised' | 'PatientOrFamilyConcern' | 'Called' | 'Arrived' | 'Assessed' | 'Planned';
+
+export interface EscalationRecordView {
+  at: string;
+  kind: EscalationRecordKind;
+  by: string;
+  tier: EscalationTier | null;
+  text: string | null;
+  simulated: boolean | null;
 }
 
 export interface BedSummary {
@@ -97,7 +130,7 @@ export interface BedSummary {
   nextDue: string | null;
   overdueMinutes: number | null;
   concernsKnown: boolean;
-  escalation: Escalation;
+  escalation: EscalationState;
   eventsAvailable: boolean;
   events: WardEvent[];
 }
@@ -126,6 +159,8 @@ export interface PatientSeries {
   points: ScorePoint[];
   eventsAvailable: boolean;
   events: WardEvent[];
+  escalation: EscalationState;
+  escalationRecords: EscalationRecordView[];
 }
 
 /** "RespirationRate" → "respirationRate", the key of the same parameter in subScores. */

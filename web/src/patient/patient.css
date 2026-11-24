@@ -208,3 +208,58 @@
   font-weight: 700;
   margin-left: 2px;
 }
+
+.side {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.chain-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.chain-panel ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.chain-panel li {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.86rem;
+}
+
+.chain-panel li:last-child {
+  border-bottom: 0;
+}
+
+.chain-panel .tm {
+  color: var(--muted);
+}
+
+.chain-panel .sim {
+  margin-left: 6px;
+  font-size: 0.72rem;
+  border: 1px dashed var(--muted);
+  border-radius: 4px;
+  padding: 0 4px;
+  color: var(--muted);
+}
+
+.chain-panel .rec-text {
+  display: block;
+  color: var(--ink);
+}
+
+.chain-panel li[data-kind='ConcernRaised'] b,
+.chain-panel li[data-kind='PatientOrFamilyConcern'] b {
+  color: var(--warn);
+}

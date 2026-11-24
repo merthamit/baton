@@ -390,3 +390,73 @@ html {
   font-size: 0.8rem;
   max-width: 85ch;
 }
+
+/* Escalation strip (13A): labelled steps, timer, reminder. Text carries the meaning; shape and colour support it. */
+.chain {
+  display: grid !important;
+  gap: 6px;
+}
+
+.chain-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.78rem;
+}
+
+.chain-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+}
+
+.chain-steps li[data-state='done'] {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.chain-mark {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  flex: none;
+}
+
+li[data-state='done'] .chain-mark {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.chain-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 0.78rem;
+}
+
+.chain-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.chain-timer[data-passed] {
+  color: var(--bad);
+}
+
+.chain-reminder {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--bad);
+  background: var(--bad-bg);
+  border-radius: 6px;
+  padding: 3px 8px;
+  justify-self: start;
+}
