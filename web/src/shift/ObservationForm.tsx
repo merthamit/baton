@@ -288,12 +288,12 @@ export function ObservationForm({ shiftId, patientId, bedLabel, name, onSaved, o
               {saved ? t.obsClose : t.cancel}
             </button>
             {!saved && (
-              <button type="submit" className="btn primary" disabled={!vitals || busy}>
+              <button type="submit" className="btn confirm" disabled={!vitals || busy}>
                 {busy ? t.obsSaving : t.obsSave}
               </button>
             )}
             {saved && callTier && !called && (
-              <button type="button" className="btn primary" disabled={busy} onClick={() => void call(callTier)}>
+              <button type="button" className="btn escalate" disabled={busy} onClick={() => void call(callTier)}>
                 {t.actCallNow(tierName(callTier))}
               </button>
             )}

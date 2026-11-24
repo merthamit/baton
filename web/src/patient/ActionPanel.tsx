@@ -62,19 +62,19 @@ export function ActionPanel({ patientName, bedLabel, at, lastActionAt, state, on
       <h3>{t.tryActions}</h3>
       {!clockOk && !busy && <p className="reason">{t.reasonClock(clock(lastActionAt))}</p>}
       <div className="action-buttons">
-        <button type="button" className="btn" disabled={!clockOk} onClick={() => open({ kind: 'Concern', label: t.actConcern, withNote: true, withTier: false })}>
+        <button type="button" className="btn concern" disabled={!clockOk} onClick={() => open({ kind: 'Concern', label: t.actConcern, withNote: true, withTier: false })}>
           {t.actConcern}
         </button>
-        <button type="button" className="btn" disabled={!clockOk} onClick={() => open({ kind: 'PatientOrFamilyConcern', label: t.actFamily, withNote: true, withTier: false })}>
+        <button type="button" className="btn concern" disabled={!clockOk} onClick={() => open({ kind: 'PatientOrFamilyConcern', label: t.actFamily, withNote: true, withTier: false })}>
           {t.actFamily}
         </button>
-        <button type="button" className="btn" disabled={!clockOk} onClick={() => open({ kind: 'Call', label: t.actCall, withNote: false, withTier: true })}>
+        <button type="button" className="btn escalate" disabled={!clockOk} onClick={() => open({ kind: 'Call', label: t.actCall, withNote: false, withTier: true })}>
           {t.actCall}
         </button>
         {suggested && (
           <button
             type="button"
-            className="btn warn"
+            className="btn danger"
             disabled={!clockOk}
             onClick={() =>
               open({ kind: 'Call', label: suggested === 'CriticalCare' ? t.actCritical : t.actSenior, withNote: false, withTier: true, tier: suggested })

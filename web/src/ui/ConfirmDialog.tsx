@@ -13,6 +13,9 @@ interface ConfirmDialogProps {
   withNote?: boolean;
   withTier?: boolean;
   defaultTier?: EscalationTier;
+  /** What confirming means, shown by the button's colour: confirm (green), escalate (orange, a call), danger (red,
+   *  ends something). A dialog with a tier is a call, so it escalates unless told otherwise. */
+  tone?: 'confirm' | 'escalate' | 'danger';
   onConfirm: (result: DialogResult) => void;
   onCancel: () => void;
 }
@@ -20,7 +23,7 @@ interface ConfirmDialogProps {
 const tiers: EscalationTier[] = ['OnCallDoctor', 'SeniorDoctor', 'CriticalCare'];
 
 /** A small confirmation dialog: the patient's name in the title, an optional note and tier, Confirm or Cancel (Esc). */
-export function ConfirmDialog({ title, withNote, withTier, defaultTier = 'OnCallDoctor', onConfirm, onCancel }: ConfirmDialogProps) {
+export function ConfirmDialog({ title, withNote, withTier, defaultTier = 'OnCallDoctor', tone, onConfirm, onCancel }: ConfirmDialogProps) {
   const { t } = useT();
   const titleId = useId();
   const noteId = useId();
@@ -100,7 +103,7 @@ export function ConfirmDialog({ title, withNote, withTier, defaultTier = 'OnCall
             <button type="button" className="btn" onClick={onCancel}>
               {t.cancel}
             </button>
-            <button type="submit" className="btn primary" ref={withNote ? undefined : first}>
+            <button type="submit" className={`btn ${tone ?? (withTier ? 'escalate' : 'confirm')}`} ref={withNote ? undefined : first}>
               {t.confirm}
             </button>
           </div>

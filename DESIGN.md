@@ -16,6 +16,19 @@ sometimes on a phone at the bedside. Precision and restraint, not decoration.
   calls waiting and concerns.
 - **Light by default**, dark on request (theme switch, remembered in the browser).
 
+## Buttons: every colour is a meaning
+
+- **Blue (`.btn.primary`)** goes on: play the night, enter an observation, take over, the doctor's next step.
+- **Green (`.btn.confirm`)** confirms or saves: Save an observation, Confirm in a dialog.
+- **Orange (`.btn.escalate`, solid)** escalates: Call doctor, Call now, confirming a call. **Orange outline
+  (`.btn.concern`)** raises a concern, matching the concern flag on the card.
+- **Red (`.btn.danger`, solid)** ends something or is the urgent call: confirming End shift, the suggested senior or
+  critical-care call. **Red outline (`.btn.danger-outline`)**: End shift itself.
+- **Plain (`.btn`)** cancels, closes, retries, pauses.
+- Switches (Board | Handover, Watch | Try | Shift, speed, language, theme) are not actions: Board | Handover are
+  underlined tabs; the others are segmented controls, a grey track with the chosen option as a raised white chip,
+  so they never compete with risk colours or the action buttons.
+
 ## Layout
 
 - Slim synthetic-data strip (full width) → app bar: ward name, *Board | Handover* tabs, live link, language, theme →

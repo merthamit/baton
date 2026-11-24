@@ -68,19 +68,19 @@ export function BedsidePanel({ shiftId, patientId, bedLabel, name, state, onChan
         <button type="button" className="btn" disabled={busy} aria-expanded={notDone} aria-controls={formId} onClick={() => setNotDone((v) => !v)}>
           {t.actNotDone}
         </button>
-        <button type="button" className="btn" disabled={busy} onClick={() => setPending({ kind: 'Concern', label: t.actConcern, withNote: true, withTier: false })}>
+        <button type="button" className="btn concern" disabled={busy} onClick={() => setPending({ kind: 'Concern', label: t.actConcern, withNote: true, withTier: false })}>
           {t.actConcern}
         </button>
-        <button type="button" className="btn" disabled={busy} onClick={() => setPending({ kind: 'PatientOrFamilyConcern', label: t.actFamily, withNote: true, withTier: false })}>
+        <button type="button" className="btn concern" disabled={busy} onClick={() => setPending({ kind: 'PatientOrFamilyConcern', label: t.actFamily, withNote: true, withTier: false })}>
           {t.actFamily}
         </button>
-        <button type="button" className="btn" disabled={busy} onClick={() => setPending({ kind: 'Call', label: t.actCall, withNote: false, withTier: true })}>
+        <button type="button" className="btn escalate" disabled={busy} onClick={() => setPending({ kind: 'Call', label: t.actCall, withNote: false, withTier: true })}>
           {t.actCall}
         </button>
         {suggested && (
           <button
             type="button"
-            className="btn warn"
+            className="btn danger"
             disabled={busy}
             onClick={() => setPending({ kind: 'Call', label: suggested === 'CriticalCare' ? t.actCritical : t.actSenior, withNote: false, withTier: true, tier: suggested })}
           >

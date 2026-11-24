@@ -44,12 +44,31 @@
   margin-right: auto;
 }
 
-/* Board | Handover read as the page's two places, so they are larger than the tools around them. */
-.seg-tabs button {
+/* Board | Handover are the page's two places: navigation tabs with an underline, not a switch. */
+.seg.seg-tabs {
+  gap: 4px;
+  padding: 0;
+  background: none;
+}
+
+.seg.seg-tabs button {
   min-height: 40px;
-  padding: 8px 18px;
-  font-size: 0.95rem;
+  padding: 8px 14px;
+  border-radius: 0;
+  border-bottom: 3px solid transparent;
+  font-size: 1rem;
   font-weight: 700;
+}
+
+.seg.seg-tabs button:hover {
+  border-bottom-color: var(--line);
+}
+
+.seg.seg-tabs button[aria-pressed='true'] {
+  background: none;
+  box-shadow: none;
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .appbar-tools {
@@ -60,8 +79,8 @@
 }
 
 .seg-small button {
-  min-height: 32px;
-  padding: 4px 10px;
+  min-height: 28px;
+  padding: 3px 10px;
   font-size: 0.82rem;
 }
 
@@ -103,9 +122,9 @@
 }
 
 .modebar .seg button {
-  min-height: 38px;
-  padding: 6px 16px;
-  font-weight: 700;
+  min-height: 36px;
+  padding: 6px 18px;
+  font-size: 0.95rem;
 }
 
 .mode-hint {

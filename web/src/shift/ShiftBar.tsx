@@ -69,12 +69,13 @@ export function ShiftBar({ state, fetchedAt, role, otherRoleHref, onRole, onSpee
       <a className="btn" href={otherRoleHref} target="_blank" rel="noopener">
         {role === 'nurse' ? t.shiftOpenDoctor : t.shiftOpenNurse}
       </a>
-      <button type="button" className="btn" onClick={() => setEnding(true)}>
+      <button type="button" className="btn danger-outline" onClick={() => setEnding(true)}>
         {t.shiftEnd}
       </button>
       {ending && (
         <ConfirmDialog
           title={t.shiftEndConfirm}
+          tone="danger"
           onConfirm={() => {
             setEnding(false);
             onEnd();

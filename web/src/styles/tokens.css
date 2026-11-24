@@ -7,8 +7,22 @@
   --ink: #14202a;
   --muted: #4f5f6b;
   --line: #d5dde3;
-  --accent: #1d5fa6;
+  --accent: #1a62c2;
+  --accent-hover: #14529f;
   --accent-soft: #e4eef9;
+  /* Segmented controls: a grey track, the chosen option a raised white chip (no saturated fill). */
+  /* Button meanings: blue (--accent) goes on, green confirms, orange escalates or raises a concern, red ends
+     something or is the urgent call, grey (plain .btn) cancels or closes. Text on these fills is --on-solid. */
+  --confirm: #1c7038;
+  --confirm-hover: #155a2c;
+  --escalate: #b24600;
+  --escalate-hover: #8f3800;
+  --danger: #c0122d;
+  --danger-hover: #9c0e24;
+  --on-solid: #ffffff;
+  --seg-track: #e6ebef;
+  --seg-on: #ffffff;
+  --seg-shadow: 0 1px 2px rgb(16 28 38 / 0.14), 0 0 0 1px rgb(16 28 38 / 0.06);
   --strip-bg: #1d2a34;
   --strip-ink: #e9eff3;
   /* Risk, following the NEWS2 bands and colour only where attention is needed: 0 uncoloured, 1–4 pale yellow,
@@ -47,7 +61,18 @@
   --muted: #9fb0bb;
   --line: #2a3a45;
   --accent: #86b8e8;
+  --accent-hover: #a5cbef;
   --accent-soft: #1a2f43;
+  --confirm: #6fcf8f;
+  --confirm-hover: #8ddba6;
+  --escalate: #f4a462;
+  --escalate-hover: #f7b980;
+  --danger: #f2808f;
+  --danger-hover: #f59ba7;
+  --on-solid: #0f171d;
+  --seg-track: #0d141a;
+  --seg-on: #2a3a46;
+  --seg-shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(255 255 255 / 0.06);
   --strip-bg: #0a1116;
   --strip-ink: #b9c7d0;
   --quiet: #9fb0bb;
@@ -135,32 +160,37 @@ input {
   outline-offset: 2px;
 }
 
+/* Segmented control: options sit in a grey track; the chosen one is a raised chip in ink, so a row of these
+   switches never competes with the board's risk colours or the one blue action button. */
 .seg {
   display: inline-flex;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  overflow: hidden;
-  background: var(--panel);
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--seg-track);
 }
 
 .seg button {
   border: 0;
-  border-right: 1px solid var(--line);
+  border-radius: 7px;
   background: transparent;
-  padding: 6px 12px;
+  color: var(--muted);
+  padding: 5px 12px;
   font-size: 0.88rem;
   cursor: pointer;
-  min-height: 36px;
+  min-height: 32px;
+  transition: background-color var(--dur) ease-out, color var(--dur) ease-out, box-shadow var(--dur) ease-out;
 }
 
-.seg button:last-child {
-  border-right: 0;
+.seg button:hover {
+  color: var(--ink);
 }
 
 .seg button[aria-pressed='true'] {
-  background: var(--accent);
-  color: var(--panel);
+  background: var(--seg-on);
+  color: var(--ink);
   font-weight: 700;
+  box-shadow: var(--seg-shadow);
 }
 
 .visually-hidden {

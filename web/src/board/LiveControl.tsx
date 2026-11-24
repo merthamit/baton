@@ -24,7 +24,7 @@ export function LiveControl({ playing, speed, atEnd, onPlay, onPause, onSpeed }:
   const { t } = useT();
   return (
     <div className="live" role="group" aria-label={t.liveLabel}>
-      <button type="button" className="btn" disabled={!playing && atEnd} onClick={playing ? onPause : onPlay}>
+      <button type="button" className={playing ? "btn" : "btn primary"} disabled={!playing && atEnd} onClick={playing ? onPause : onPlay}>
         {playing ? t.livePause : t.livePlay}
       </button>
       <div className="seg" role="group" aria-label={t.liveSpeed}>

@@ -123,12 +123,13 @@ html {
   min-height: 38px;
   cursor: pointer;
   font-weight: 700;
+  box-shadow: 0 1px 0 rgb(16 28 38 / 0.04);
   transition: background-color var(--dur) ease-out, border-color var(--dur) ease-out;
 }
 
 .btn:hover {
   background: var(--bg);
-  border-color: var(--muted);
+  border-color: color-mix(in srgb, var(--muted) 55%, var(--line));
 }
 
 .board {
@@ -583,20 +584,60 @@ li[data-state='done'] .chain-mark {
   cursor: not-allowed;
 }
 
-.btn.primary {
-  background: var(--accent);
-  color: var(--panel);
-  border-color: var(--accent);
+/* Each colour is a meaning (see tokens.css): blue goes on, green confirms, orange escalates, red ends or is urgent;
+   plain buttons cancel or close. Solid fills carry the main action; outlines carry the same meaning more quietly. */
+.btn.primary,
+.btn.confirm,
+.btn.escalate,
+.btn.danger {
+  --tone: var(--accent);
+  --tone-hover: var(--accent-hover);
+  background: var(--tone);
+  border-color: var(--tone);
+  color: var(--on-solid);
 }
 
-.btn.primary:hover {
-  filter: brightness(1.08);
-  background: var(--accent);
+.btn.confirm {
+  --tone: var(--confirm);
+  --tone-hover: var(--confirm-hover);
 }
 
-.btn.warn {
-  color: var(--bad);
-  border-color: var(--bad);
+.btn.escalate {
+  --tone: var(--escalate);
+  --tone-hover: var(--escalate-hover);
+}
+
+.btn.danger {
+  --tone: var(--danger);
+  --tone-hover: var(--danger-hover);
+}
+
+.btn.primary:hover,
+.btn.confirm:hover,
+.btn.escalate:hover,
+.btn.danger:hover {
+  background: var(--tone-hover);
+  border-color: var(--tone-hover);
+}
+
+/* Outlined: a concern (orange, matches the concern flag on the card) and ending the shift (red). */
+.btn.concern,
+.btn.danger-outline {
+  --tone: var(--warn);
+  --tone-bg: var(--warn-bg);
+  border-color: var(--tone);
+  color: var(--tone);
+}
+
+.btn.danger-outline {
+  --tone: var(--bad);
+  --tone-bg: var(--bad-bg);
+}
+
+.btn.concern:hover,
+.btn.danger-outline:hover {
+  background: var(--tone-bg);
+  border-color: var(--tone);
 }
 
 .dialog-backdrop {
