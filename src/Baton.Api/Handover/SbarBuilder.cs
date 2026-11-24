@@ -128,16 +128,25 @@ public static class SbarBuilder
         /// Calls that belong to this handover: made in the window, or with a step in the window, or still open (no
         /// arrival) at the window's start.
         /// </summary>
-        public IReadOnlyList<Called> CallsInWindow() => Records.OfType<Called>()
-            .Where(call =>
-            {
-                var steps = Records.Where(r => CallIdOf(r) == call.CallId).ToList();
-                var arrival = steps.OfType<Arrived>().FirstOrDefault();
-                return call.At >= WindowStart
-                    || steps.Any(s => s.At >= WindowStart)
-                    || arrival is null || arrival.At > WindowStart;
-            })
-            .ToList();
+        public IReadOnlyList<Called> CallsInWindow()
+        {
+            // The episode goes on: when a score in the window still asks for escalation, the last call before the
+            // window belongs to this handover too (the team already involved), so the reader sees who came.
+            var episode = Points.Any(p => p.Risk is RiskLevel.LowMedium or RiskLevel.Medium or RiskLevel.High)
+                ? Records.OfType<Called>().LastOrDefault(call => call.At < WindowStart)
+                : null;
+            return Records.OfType<Called>()
+                .Where(call =>
+                {
+                    var steps = Records.Where(r => CallIdOf(r) == call.CallId).ToList();
+                    var arrival = steps.OfType<Arrived>().FirstOrDefault();
+                    return call.At >= WindowStart
+                        || steps.Any(s => s.At >= WindowStart)
+                        || arrival is null || arrival.At > WindowStart
+                        || call == episode;
+                })
+                .ToList();
+        }
 
         public static string? CallIdOf(EscalationRecord record) => record switch
         {

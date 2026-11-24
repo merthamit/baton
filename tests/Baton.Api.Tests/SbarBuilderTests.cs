@@ -177,6 +177,22 @@ public class SbarBuilderTests
     }
 
     [Fact]
+    public void EpisodeCallFromBeforeWindowIsShownWhenScoresStayRaised()
+    {
+        // Bed 07's evening: critical care came at 18:30, before the 20:00 window; the 8 at 20:15 is the same episode.
+        var records = new EscalationRecord[]
+        {
+            new Called(T(23, 18, 20), Nurse, "call-2", EscalationTier.CriticalCare),
+            new Arrived(T(23, 18, 30), "Practitioner/synthetic-cct", "call-2", true),
+        };
+        var points = new[] { Point(T(23, 20, 15), 8, RiskLevel.High), Point(T(24, 7, 15), 2, RiskLevel.Low) };
+        var sbar = SbarBuilder.Build(Input(points, records), null);
+
+        Assert.Equal(["Critical care team called at 18:20.", "Arrived at 18:30 (simulated)."], Texts(sbar, SbarPart.Assessment));
+        Assert.DoesNotContain(sbar.Missing, m => m.Kind is MissingKind.NoCallAfterScore or MissingKind.NoCriticalCareCall);
+    }
+
+    [Fact]
     public void StepsAfterAtAreNotShown()
     {
         var records = new EscalationRecord[]
