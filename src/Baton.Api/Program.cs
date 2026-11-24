@@ -21,7 +21,7 @@ builder.Services.AddSingleton<IVitalSignsSource>(sp =>
     return options.SourceName switch
     {
         BatonOptions.Hapi => new HapiVitalSignsSource(HapiVitalSignsSource.CreateClient(options.FhirBaseUrl)),
-        BatonOptions.InMemory => new InMemoryVitalSignsSource(options.ShiftStart, options.Seed),
+        BatonOptions.InMemory => new InMemoryVitalSignsSource(options.ShiftStart, options.Seed, options.TreatmentDelayHours, options.Beds),
         _ => throw new InvalidOperationException($"Unknown Baton:Source '{options.Source}'. Use InMemory or Hapi."),
     };
 });
@@ -29,9 +29,19 @@ builder.Services.AddSingleton<WardService>();
 
 var app = builder.Build();
 
-// Resolve the source now so a wrong Baton:Source fails at startup, not on every request.
-var source = app.Services.GetRequiredService<IVitalSignsSource>();
+// Check the settings and resolve the source now so a wrong setting fails at startup, not on every request.
 var settings = app.Services.GetRequiredService<IOptions<BatonOptions>>().Value;
+if (settings.Beds is < 1 or > Baton.Scenarios.Ward.MaxBeds)
+{
+    throw new InvalidOperationException($"Baton:Beds must be between 1 and {Baton.Scenarios.Ward.MaxBeds}.");
+}
+
+if (settings.TreatmentDelayHours < 0)
+{
+    throw new InvalidOperationException("Baton:TreatmentDelayHours must not be negative.");
+}
+
+var source = app.Services.GetRequiredService<IVitalSignsSource>();
 app.Logger.LogInformation("Baton source: {Source} {Url}", settings.SourceName, settings.SourceName == BatonOptions.Hapi ? settings.FhirBaseUrl : "(generated in memory)");
 
 app.MapGet("/health", () => Results.Ok(new
@@ -117,6 +127,12 @@ public sealed class BatonOptions
     public string FhirBaseUrl { get; set; } = "http://localhost:8080/fhir";
 
     public int Seed { get; set; } = 42;
+
+    /// <summary>In-memory source: how many beds to generate (1–30; 8 story beds by default).</summary>
+    public int Beds { get; set; } = Baton.Scenarios.Ward.DefaultBeds;
+
+    /// <summary>In-memory source: hours by which treatment starts late (decision 2B). The FHIR loader has --delay.</summary>
+    public double TreatmentDelayHours { get; set; }
 
     public DateTimeOffset ShiftStart { get; set; } = new(2026, 11, 23, 8, 0, 0, TimeSpan.FromHours(3));
 
