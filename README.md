@@ -29,7 +29,8 @@ when the numbers look fine, and drafts a handover where every sentence points ba
 | **Escalation chain** | Concern → called → arrived → assessed → plan, time-stamped and stored in FHIR. Response targets from NEWS2 guidance (60 min for 5–6 or a single 3, 30 min for 7+, configurable); when a target passes, Baton suggests the next tier but never calls anyone. Patients and families can raise a concern too. |
 | **SBAR handover** | Rule-based handover built from FHIR data, sickest patient first. Every sentence links to its source, gaps are named instead of filled in, and the incoming nurse's confirmation stores it as a FHIR document. |
 
-Status: **in development.** Done so far: NEWS2 engine, FHIR reading/writing, synthetic ward generator, FHIR server, API, the ward board and the escalation chain, with a Try mode where you play the nurse, the SBAR handover, and a live board.
+Status: **in development.** Done so far: NEWS2 engine, FHIR reading/writing, synthetic ward generator, FHIR server, API, the ward board and the escalation chain, with a Try mode where you play the nurse, the SBAR handover, a live board, and a shift mode with bedside entry and a
+doctor screen that acknowledges and answers calls.
 
 ## How the score is calculated
 
@@ -114,6 +115,21 @@ call a doctor (on-call, senior or critical care), record the assessment and plan
 patient and bed. The doctor's arrival is simulated, and a late call delays treatment so the patient gets worse on the
 chart (calling earlier than the scenario does not make them better than its timely course). Endpoints: `POST /api/try`,
 `POST /api/try/{id}/actions`, `DELETE /api/try/{id}`, and `?try={id}` on the ward and patient endpoints.
+
+**Shift mode** (in-memory data only): press *Shift* to run your own private copy of the ward from the board's moment,
+with the ward clock running at 1×, 10× or 60× real time. From then on nothing happens unless you do it: beds fall due
+and go overdue, while each patient keeps changing underneath. As the nurse, open a bed and *Enter observations*:
+*Measure now* fills in what the monitor reads, you check and correct it, and the NEWS2 score (from the same .NET engine)
+updates as you type. After saving you see the clinical response, when the next set is due and a *Call* button for the
+suggested tier. A set that could not be taken is recorded with its reason (asleep, declined, off the ward, equipment
+unavailable, end-of-life care, or "no reading could be obtained", which needs an immediate response). Open the doctor
+screen in a second tab (the link is in the shift banner): the called clinician acknowledges the call, arrives, records
+the assessment and the plan, each stamped with the ward clock, and the nurse's board updates live. Treatment starts
+only after the doctor's real arrival in the shift, so a call left unanswered keeps the patient getting worse. Endpoints:
+`POST /api/shift`, `GET|DELETE /api/shift/{id}`, `PUT /api/shift/{id}/speed`, `GET /api/shift/{id}/patients/{patientId}/measure`,
+`POST /api/shift/{id}/observations`, `POST /api/shift/{id}/not-done`, `POST /api/shift/{id}/actions`,
+`GET /api/shift/{id}/calls`, `POST /api/news2` (score preview, nothing stored), and `?shift={id}` on the ward, patient,
+handover and live endpoints.
 
 **Handover** (*Board | Handover* in the header): the ward ranked sickest first, then by what the record is missing.
 Open a patient to read their SBAR for the last 12 hours: the current score and the shift's highest, what drives it,
