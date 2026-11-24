@@ -9,7 +9,7 @@ using Hl7.Fhir.Rest;
 //                       --rr 26 --spo2 91 --o2 2 --sbp 95 --hr 118 --temp 38.9 --acvpu A --fhir http://localhost:8080/fhir
 if (args.Length > 0 && args[0] == "observe")
 {
-    var (request, problem) = ObserveCommand.Parse(args[1..]);
+    var (request, problem) = ObserveCommand.Parse(args[1..], new DateTimeOffset(2026, 11, 23, 8, 0, 0, TimeSpan.FromHours(3)));
     if (request is null)
     {
         Console.Error.WriteLine(problem);

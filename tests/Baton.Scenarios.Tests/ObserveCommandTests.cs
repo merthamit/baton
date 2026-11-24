@@ -45,6 +45,29 @@ public class ObserveCommandTests
     }
 
     [Fact]
+    public void RejectsARepeatedOption()
+    {
+        var (request, error) = ObserveCommand.Parse([.. Full, "--rr", "12"]);
+
+        Assert.Null(request);
+        Assert.Contains("--rr", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RejectsAMomentOutsideTheShift()
+    {
+        var shiftStart = new DateTimeOffset(2026, 11, 23, 8, 0, 0, TimeSpan.FromHours(3));
+        var args = Full.ToArray();
+        args[Array.IndexOf(args, "--at") + 1] = "2026-11-25T09:00:00+03:00";
+
+        var (request, error) = ObserveCommand.Parse(args, shiftStart);
+
+        Assert.Null(request);
+        Assert.Contains("shift", error, StringComparison.Ordinal);
+        Assert.NotNull(ObserveCommand.Parse(Full, shiftStart).Request);
+    }
+
+    [Fact]
     public void RejectsAtWithoutOffset()
     {
         var args = Full.ToArray();

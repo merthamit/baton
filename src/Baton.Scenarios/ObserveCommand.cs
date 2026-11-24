@@ -29,7 +29,11 @@ public static partial class ObserveCommand
         ["U"] = Consciousness.Unresponsive,
     };
 
-    public static (ObserveRequest? Request, string? Error) Parse(string[] args)
+    /// <summary>
+    /// Parses the options. With <paramref name="shiftStart"/>, <c>--at</c> must fall inside that 24-hour scenario shift
+    /// (the board only shows moments inside it).
+    /// </summary>
+    public static (ObserveRequest? Request, string? Error) Parse(string[] args, DateTimeOffset? shiftStart = null)
     {
         ArgumentNullException.ThrowIfNull(args);
         if (args.Length % 2 != 0)
@@ -40,7 +44,10 @@ public static partial class ObserveCommand
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         for (var i = 0; i < args.Length; i += 2)
         {
-            values[args[i]] = args[i + 1];
+            if (!values.TryAdd(args[i], args[i + 1]))
+            {
+                return (null, $"Option {args[i]} is given twice.");
+            }
         }
 
         string[] required = ["--bed", "--at", "--rr", "--spo2", "--o2", "--sbp", "--hr", "--temp", "--acvpu", "--fhir"];
@@ -62,6 +69,11 @@ public static partial class ObserveCommand
         if (!Offset().IsMatch(values["--at"]) || !DateTimeOffset.TryParse(values["--at"], CultureInfo.InvariantCulture, DateTimeStyles.None, out var at))
         {
             return (null, "--at must be a date and time with an offset, e.g. 2026-11-23T15:10:00+03:00.");
+        }
+
+        if (shiftStart is { } start && (at < start || at > start.AddHours(ShiftSimulator.ShiftHours)))
+        {
+            return (null, $"--at must be inside the scenario shift ({start:yyyy-MM-dd HH:mm} to {start.AddHours(ShiftSimulator.ShiftHours):yyyy-MM-dd HH:mm}).");
         }
 
         string? error = null;

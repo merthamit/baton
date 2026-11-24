@@ -35,7 +35,7 @@ public static class ScenarioFhirExport
         ArgumentException.ThrowIfNullOrEmpty(idStamp);
 
         var v = vitals;
-        Observation Make(string suffix, string code, string display, DataType value) => new()
+        Observation Make(string suffix, string code, string display, DataType? value) => new()
         {
             Id = $"{patientId}-{idStamp}-{suffix}",
             Status = ObservationStatus.Final,
@@ -52,8 +52,7 @@ public static class ScenarioFhirExport
         // 85354-9 panel with systolic and diastolic components; the scenario has no diastolic value, so it is absent.
         var spo2 = Make("spo2", "2708-6", "Oxygen saturation in Arterial blood", Q(v.SpO2, "%"));
         spo2.Code.Coding.Add(new Coding(Loinc, "59408-5", "Oxygen saturation in Arterial blood by Pulse oximetry"));
-        var bp = Make("sbp", "85354-9", "Blood pressure panel with all children optional", null!);
-        bp.Value = null;
+        var bp = Make("sbp", "85354-9", "Blood pressure panel with all children optional", null);
         bp.Component =
         [
             new Observation.ComponentComponent { Code = new CodeableConcept(Loinc, "8480-6", "Systolic blood pressure"), Value = Q(v.SystolicBp, "mm[Hg]") },
