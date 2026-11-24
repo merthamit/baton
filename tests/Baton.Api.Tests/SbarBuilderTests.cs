@@ -367,6 +367,21 @@ public class SbarBuilderTests
     }
 
     [Fact]
+    public void AnsweredCallEarlierInWindowCoversLaterScores()
+    {
+        // Bed 02's night: critical care came at 00:30; a 6 at 01:15 is the same episode, not a missed call.
+        var records = new EscalationRecord[]
+        {
+            new Called(T(24, 0, 20), Nurse, "call-2", EscalationTier.CriticalCare),
+            new Arrived(T(24, 0, 30), "Practitioner/synthetic-cct", "call-2", true),
+        };
+        var points = new[] { Point(T(24, 0, 15), 10, RiskLevel.High), Point(T(24, 1, 15), 6, RiskLevel.Medium) };
+        var sbar = SbarBuilder.Build(Input(points, records), null);
+
+        Assert.DoesNotContain(sbar.Missing, m => m.Kind == MissingKind.NoCallAfterScore);
+    }
+
+    [Fact]
     public void MissingNoCriticalCareCallAfterSeven()
     {
         var records = new EscalationRecord[] { new Called(T(24, 5), Nurse, "call-1", EscalationTier.OnCallDoctor) };

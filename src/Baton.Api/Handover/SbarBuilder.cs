@@ -343,11 +343,13 @@ public static class SbarBuilder
             missing.Add(new(MissingKind.NoObservations, t.MissingNoObservations, c.PatientSources()));
         }
 
-        // The first measurement asking for escalation with no call at or after it and no call open at that moment.
+        // The first measurement asking for escalation with no call at or after it and no call of this handover's
+        // episode before it (a call already made in the window, answered or still open, covers the scores after it;
+        // a 7+ still needs critical care, below).
         var uncovered = c.Points.FirstOrDefault(p =>
             p.Risk is RiskLevel.LowMedium or RiskLevel.Medium or RiskLevel.High
             && !calls.Any(call => call.At >= p.At)
-            && !c.State.Calls.Any(call => call.CalledAt <= p.At && (call.ArrivedAt is null || call.ArrivedAt > p.At)));
+            && !c.WindowCalls.Any(call => call.CalledAt <= p.At));
         if (uncovered is not null)
         {
             missing.Add(new(MissingKind.NoCallAfterScore, t.MissingNoCall(uncovered.Total ?? uncovered.MinimumTotal ?? 0, c.Time(uncovered.At)), c.Of(uncovered)));
