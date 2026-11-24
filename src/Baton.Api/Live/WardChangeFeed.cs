@@ -34,58 +34,96 @@ public sealed class WardChangeFeed
 
     public async IAsyncEnumerable<WardChange> Subscribe([EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var id = Guid.NewGuid();
-        var channel = Channel.CreateBounded<WardChange>(new BoundedChannelOptions(Capacity)
-        {
-            FullMode = BoundedChannelFullMode.DropOldest,
-            SingleReader = true,
-        });
-        subscribers[id] = channel;
+        var (reader, release) = Register();
         try
         {
             while (true)
             {
-                yield return await channel.Reader.ReadAsync(cancellationToken);
+                yield return await reader.ReadAsync(cancellationToken);
             }
         }
         finally
         {
-            subscribers.TryRemove(id, out _);
+            release();
         }
     }
 
     /// <summary>
     /// The SSE stream for one browser: "ready" once subscribed, then each change as "change", and a "ping" every
-    /// <paramref name="keepAlive"/> so proxies keep the connection open.
+    /// <paramref name="keepAlive"/> so proxies keep the connection open. A Try session's changes go only to the stream
+    /// opened for that session, and without the session id (it works like a key; the public stream never carries it).
+    /// Ending the connection ends the stream quietly and removes the subscriber.
     /// </summary>
-    public async IAsyncEnumerable<SseItem<object>> Stream(TimeSpan keepAlive, [EnumeratorCancellation] CancellationToken cancellationToken)
+    public async IAsyncEnumerable<SseItem<object>> Stream(TimeSpan keepAlive, string? trySession, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        await using var changes = Subscribe(cancellationToken).GetAsyncEnumerator(cancellationToken);
-        var next = changes.MoveNextAsync().AsTask();
-        yield return new SseItem<object>(new { at = DateTimeOffset.UtcNow }, "ready");
-        while (!cancellationToken.IsCancellationRequested)
+        var (reader, release) = Register();
+        try
         {
-            var tick = Task.Delay(keepAlive, cancellationToken);
-            var done = await Task.WhenAny(next, tick);
-            if (cancellationToken.IsCancellationRequested)
+            yield return new SseItem<object>(new { at = DateTimeOffset.UtcNow }, "ready");
+            while (true)
             {
-                yield break;
-            }
-
-            if (done == next)
-            {
-                if (!await next)
+                var wait = await Wait(reader, keepAlive, cancellationToken);
+                if (wait == Waited.Ended)
                 {
                     yield break;
                 }
 
-                yield return new SseItem<object>(changes.Current, "change");
-                next = changes.MoveNextAsync().AsTask();
-            }
-            else
-            {
-                yield return new SseItem<object>(new { at = DateTimeOffset.UtcNow }, "ping");
+                if (wait == Waited.Quiet)
+                {
+                    yield return new SseItem<object>(new { at = DateTimeOffset.UtcNow }, "ping");
+                    continue;
+                }
+
+                while (reader.TryRead(out var change))
+                {
+                    if (change.TrySession is null)
+                    {
+                        yield return new SseItem<object>(change, "change");
+                    }
+                    else if (change.TrySession == trySession)
+                    {
+                        yield return new SseItem<object>(change with { TrySession = null }, "change");
+                    }
+                }
             }
         }
+        finally
+        {
+            release();
+        }
+    }
+
+    private enum Waited
+    {
+        Ready,
+        Quiet,
+        Ended,
+    }
+
+    private static async Task<Waited> Wait(ChannelReader<WardChange> reader, TimeSpan keepAlive, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await reader.WaitToReadAsync(cancellationToken).AsTask().WaitAsync(keepAlive, cancellationToken) ? Waited.Ready : Waited.Ended;
+        }
+        catch (TimeoutException)
+        {
+            return Waited.Quiet;
+        }
+        catch (OperationCanceledException)
+        {
+            return Waited.Ended;
+        }
+    }
+
+    private (ChannelReader<WardChange> Reader, Action Release) Register()
+    {
+        var id = Guid.NewGuid();
+        var channel = Channel.CreateBounded<WardChange>(new BoundedChannelOptions(Capacity)
+        {
+            FullMode = BoundedChannelFullMode.DropOldest,
+        });
+        subscribers[id] = channel;
+        return (channel.Reader, () => subscribers.TryRemove(id, out _));
     }
 }

@@ -27,7 +27,9 @@ export function TimeControl({ shiftStart, shiftEnd, at, onChange, onUserMove }: 
   useEffect(() => setStep(toStep(at)), [at, shiftStart, shiftEnd]);
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  const shown = addMinutes(shiftStart, step * stepMinutes);
+  // While dragging the label follows the slider; otherwise it is the board's own moment (the live clock is not on
+  // 15-minute steps, and the label must never show another time than the cards).
+  const shown = step === toStep(at) ? at : addMinutes(shiftStart, step * stepMinutes);
 
   return (
     <div className="time">

@@ -51,6 +51,12 @@ describe('useLiveChanges', () => {
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
+  it("asks for its own Try session's changes", () => {
+    render(<Probe onChange={vi.fn()} trySession="abc" />);
+
+    expect(FakeEventSource.last().url).toBe('/api/live?try=abc');
+  });
+
   it('closes the stream on unmount', () => {
     const { unmount } = render(<Probe onChange={vi.fn()} />);
     unmount();

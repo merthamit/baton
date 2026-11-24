@@ -73,6 +73,51 @@ public class FhirNotifyTests(WebApplicationFactory<Program> factory) : IClassFix
         Assert.Null(change.PatientId);
     }
 
+    [Theory]
+    [InlineData("PUT")]
+    [InlineData("POST")]
+    [InlineData("DELETE")]
+    public async Task HapiStyleCallUnderTheEndpointIsAccepted(string method)
+    {
+        var app = App();
+        var feed = (WardChangeFeed)app.Services.GetService(typeof(WardChangeFeed));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var changes = feed.Subscribe(cts.Token).GetAsyncEnumerator(cts.Token);
+        var next = changes.MoveNextAsync();
+
+        var body = method == "DELETE" ? "" : """{"resourceType":"Observation","subject":{"reference":"Patient/synthetic-03"}}""";
+        using var request = new HttpRequestMessage(new HttpMethod(method), "/api/fhir/notify/Observation/synthetic-03-live-202611231510-rr")
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/fhir+json"),
+        };
+        request.Headers.Add("X-Baton-Hook", "local-secret");
+        var response = await app.CreateClient().SendAsync(request, cts.Token);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(await next);
+        Assert.Equal("Fhir", changes.Current.Kind);
+        await changes.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task RegistrarNeverStopsTheApi()
+    {
+        var options = Microsoft.Extensions.Options.Options.Create(new BatonOptions
+        {
+            Source = BatonOptions.Hapi,
+            FhirBaseUrl = "::not a url::",
+            LiveCallbackUrl = "http://localhost:5188/api/fhir/notify",
+        });
+        using var registrar = new LiveSubscriptionRegistrar(options, Microsoft.Extensions.Logging.Abstractions.NullLogger<LiveSubscriptionRegistrar>.Instance);
+
+        await registrar.StartAsync(CancellationToken.None);
+        await System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(1));
+        Assert.False(registrar.ExecuteTask!.IsFaulted); // a bad URL is logged and retried, never thrown
+
+        await registrar.StopAsync(CancellationToken.None);
+        Assert.False(registrar.ExecuteTask.IsFaulted);
+    }
+
     [Fact]
     public async Task NotifyWithWrongSecretIs401()
     {

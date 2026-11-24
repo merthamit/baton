@@ -36,7 +36,8 @@ export function useLiveChanges(onChange: (change: WardChange) => void, trySessio
     if (typeof EventSource === 'undefined') {
       return undefined;
     }
-    const source = new EventSource('/api/live');
+    // A Try session's own changes come only on a stream opened for that session (the public one never names sessions).
+    const source = new EventSource(trySession ? `/api/live?try=${encodeURIComponent(trySession)}` : '/api/live');
     source.onopen = () => setStatus('open');
     source.onerror = () => setStatus('reconnecting');
     source.addEventListener('ready', () => setStatus('open'));
@@ -49,7 +50,7 @@ export function useLiveChanges(onChange: (change: WardChange) => void, trySessio
       handler.current(change);
     });
     return () => source.close();
-  }, []);
+  }, [trySession]);
 
   return status;
 }

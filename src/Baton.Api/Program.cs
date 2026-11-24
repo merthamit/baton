@@ -181,7 +181,9 @@ app.MapDelete("/api/try/{id}", (string id, TrySessions tries, Baton.Api.Live.War
 
 // The FHIR server's rest-hook (decision 17A): a subscribed resource changed. Only "this patient changed" is published;
 // whatever the body is (resource, empty, unreadable), the answer is 200, unless the shared secret does not match.
-app.MapPost("/api/fhir/notify", async (HttpRequest request, Baton.Api.Live.WardChangeFeed feed, CancellationToken ct) =>
+// HAPI's rest-hook with a payload treats the endpoint as a FHIR base: it PUTs {endpoint}/{Type}/{id} on create and update,
+// and DELETEs on delete; without a payload it POSTs to the endpoint itself. Every form lands here.
+async Task<IResult> Notify(HttpRequest request, Baton.Api.Live.WardChangeFeed feed, CancellationToken ct)
 {
     if (!string.IsNullOrEmpty(settings.HookSecret)
         && request.Headers[Baton.Api.Live.LiveSubscriptions.HookHeader].ToString() != settings.HookSecret)
@@ -193,11 +195,14 @@ app.MapPost("/api/fhir/notify", async (HttpRequest request, Baton.Api.Live.WardC
     var body = await reader.ReadToEndAsync(ct);
     feed.Publish(new Baton.Api.Live.WardChange("Fhir", Baton.Api.Live.LiveSubscriptions.PatientOf(body), null, DateTimeOffset.UtcNow));
     return Results.Ok();
-});
+}
+
+app.MapPost("/api/fhir/notify", Notify);
+app.MapMethods("/api/fhir/notify/{**path}", ["POST", "PUT", "DELETE"], Notify);
 
 // Live board: "something changed, refetch" as Server-Sent Events (decision 18A).
-app.MapGet("/api/live", (Baton.Api.Live.WardChangeFeed feed, CancellationToken ct) =>
-    TypedResults.ServerSentEvents(feed.Stream(TimeSpan.FromSeconds(25), ct)));
+app.MapGet("/api/live", ([Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, Baton.Api.Live.WardChangeFeed feed, CancellationToken ct) =>
+    TypedResults.ServerSentEvents(feed.Stream(TimeSpan.FromSeconds(25), string.IsNullOrEmpty(trySession) ? null : trySession, ct)));
 
 app.MapGet("/api/handover", async (string? at, string? lang, [Microsoft.AspNetCore.Mvc.FromQuery(Name = "try")] string? trySession, Baton.Api.Handover.HandoverService handover, TrySessions tries, CancellationToken ct) =>
 {

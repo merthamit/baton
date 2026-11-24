@@ -110,11 +110,11 @@ public sealed class LiveSubscriptionRegistrar(IOptions<BatonOptions> options, IL
             return;
         }
 
-        var client = HapiVitalSignsSource.CreateClient(settings.FhirBaseUrl);
         for (var attempt = 1; attempt <= Attempts && !stoppingToken.IsCancellationRequested; attempt++)
         {
             try
             {
+                var client = HapiVitalSignsSource.CreateClient(settings.FhirBaseUrl);
                 foreach (var subscription in LiveSubscriptions.Build(settings.LiveCallbackUrl, settings.HookSecret))
                 {
                     await client.UpdateAsync(subscription, ct: stoppingToken);
@@ -135,11 +135,24 @@ public sealed class LiveSubscriptionRegistrar(IOptions<BatonOptions> options, IL
 
                 return;
             }
-            catch (Exception ex) when (ex is HttpRequestException or FhirOperationException or TaskCanceledException && !stoppingToken.IsCancellationRequested)
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {
-                logger.LogInformation("FHIR server not ready for live subscriptions (attempt {Attempt}/{Attempts}): {Message}", attempt, Attempts, ex.Message);
-                await Task.Delay(RetryEvery, stoppingToken);
+                // Never fatal: a live board without push still works by moving the clock.
+                logger.LogWarning("Live subscriptions not written (attempt {Attempt}/{Attempts}): {Message}", attempt, Attempts, ex.Message);
+                try
+                {
+                    await Task.Delay(RetryEvery, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
             }
+        }
+
+        if (!stoppingToken.IsCancellationRequested)
+        {
+            logger.LogWarning("Gave up writing live subscriptions; the board will not refresh by itself from the FHIR server.");
         }
     }
 }

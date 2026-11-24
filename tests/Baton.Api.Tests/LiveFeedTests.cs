@@ -91,6 +91,64 @@ public class LiveFeedTests(WebApplicationFactory<Program> factory) : IClassFixtu
         Assert.Equal(0, feed.Subscribers);
     }
 
+    private static async Task<List<System.Net.ServerSentEvents.SseItem<object>>> Collect(
+        IAsyncEnumerable<System.Net.ServerSentEvents.SseItem<object>> stream, int count, CancellationTokenSource cts)
+    {
+        var items = new List<System.Net.ServerSentEvents.SseItem<object>>();
+        await foreach (var item in stream)
+        {
+            items.Add(item);
+            if (items.Count == count)
+            {
+                break;
+            }
+        }
+
+        return items;
+    }
+
+    [Fact]
+    public async Task EndingAStreamNeverThrowsAndRemovesTheSubscriber()
+    {
+        var feed = new WardChangeFeed();
+        using var cts = new CancellationTokenSource();
+        var stream = feed.Stream(TimeSpan.FromSeconds(25), null, cts.Token).GetAsyncEnumerator(cts.Token);
+        Assert.True(await stream.MoveNextAsync()); // ready
+        var pending = stream.MoveNextAsync().AsTask();
+
+        await cts.CancelAsync();
+        var ended = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+        await stream.DisposeAsync();
+
+        Assert.False(ended);
+        Assert.Equal(0, feed.Subscribers);
+    }
+
+    [Fact]
+    public async Task TryChangesGoOnlyToTheirOwnSessionWithoutTheId()
+    {
+        var feed = new WardChangeFeed();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var watcher = feed.Stream(TimeSpan.FromSeconds(25), null, cts.Token).GetAsyncEnumerator(cts.Token);
+        var owner = feed.Stream(TimeSpan.FromSeconds(25), "session-a", cts.Token).GetAsyncEnumerator(cts.Token);
+        Assert.True(await watcher.MoveNextAsync());
+        Assert.True(await owner.MoveNextAsync());
+        var watcherNext = watcher.MoveNextAsync().AsTask();
+        var ownerNext = owner.MoveNextAsync().AsTask();
+
+        feed.Publish(new WardChange("Try", "synthetic-02", "session-a", At));
+        feed.Publish(new WardChange("Handover", "synthetic-05", null, At));
+
+        Assert.True(await ownerNext);
+        var mine = Assert.IsType<WardChange>(owner.Current.Data);
+        Assert.Equal("Try", mine.Kind);
+        Assert.Null(mine.TrySession);
+        Assert.True(await watcherNext);
+        Assert.Equal("Handover", Assert.IsType<WardChange>(watcher.Current.Data).Kind);
+        await watcher.DisposeAsync();
+        await owner.DisposeAsync();
+    }
+
     [Fact]
     public async Task LiveEndpointStreamsAHandoverChange()
     {
