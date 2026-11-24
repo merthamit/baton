@@ -13,6 +13,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: "admin"
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: "org.postgresql.Driver"
       SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: "ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgresDialect"
+      # Live board: FHIR rest-hook Subscriptions call Baton.Api on the host.
+      HAPI_FHIR_SUBSCRIPTION_RESTHOOK_ENABLED: "true"
       # Java heap follows the container limit below (75% of 1.5 GB).
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75"
     # Keep the laptop usable: HAPI is CPU-hungry while starting and loading (it used ~2 cores without a limit).
@@ -20,6 +22,8 @@ services:
     mem_limit: 1536m
     ports:
       - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy

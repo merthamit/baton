@@ -10,7 +10,9 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "Baton__Source": "Hapi",
-        "Baton__FhirBaseUrl": "http://localhost:8080/fhir"
+        "Baton__FhirBaseUrl": "http://localhost:8080/fhir",
+        "Baton__LiveCallbackUrl": "http://host.docker.internal:5188/api/fhir/notify",
+        "Baton__HookSecret": "local-dev-only"
       }
     },
     "inmemory": {

@@ -43,6 +43,7 @@ builder.Services.AddSingleton(sp =>
 });
 builder.Services.AddSingleton<TrySessions>();
 builder.Services.AddSingleton<Baton.Api.Live.WardChangeFeed>();
+builder.Services.AddHostedService<Baton.Api.Live.LiveSubscriptionRegistrar>();
 builder.Services.AddSingleton<Baton.Api.Handover.IHandoverStore>(sp =>
 {
     var options = sp.GetRequiredService<IOptions<BatonOptions>>().Value;
@@ -176,6 +177,22 @@ app.MapDelete("/api/try/{id}", (string id, TrySessions tries, Baton.Api.Live.War
 
     feed.Publish(new Baton.Api.Live.WardChange("Try", session?.PatientId, id, DateTimeOffset.UtcNow));
     return Results.NoContent();
+});
+
+// The FHIR server's rest-hook (decision 17A): a subscribed resource changed. Only "this patient changed" is published;
+// whatever the body is (resource, empty, unreadable), the answer is 200, unless the shared secret does not match.
+app.MapPost("/api/fhir/notify", async (HttpRequest request, Baton.Api.Live.WardChangeFeed feed, CancellationToken ct) =>
+{
+    if (!string.IsNullOrEmpty(settings.HookSecret)
+        && request.Headers[Baton.Api.Live.LiveSubscriptions.HookHeader].ToString() != settings.HookSecret)
+    {
+        return Results.Problem("Hook secret mismatch.", statusCode: StatusCodes.Status401Unauthorized);
+    }
+
+    using var reader = new StreamReader(request.Body);
+    var body = await reader.ReadToEndAsync(ct);
+    feed.Publish(new Baton.Api.Live.WardChange("Fhir", Baton.Api.Live.LiveSubscriptions.PatientOf(body), null, DateTimeOffset.UtcNow));
+    return Results.Ok();
 });
 
 // Live board: "something changed, refetch" as Server-Sent Events (decision 18A).
@@ -353,6 +370,15 @@ public sealed class BatonOptions
     public double TreatmentDelayHours { get; set; }
 
     public DateTimeOffset ShiftStart { get; set; } = new(2026, 11, 23, 8, 0, 0, TimeSpan.FromHours(3));
+
+    /// <summary>
+    /// HAPI source: where the FHIR server calls back when subscribed resources change (live board). Empty: no
+    /// Subscriptions are written. From inside Docker the host is http://host.docker.internal:5188/api/fhir/notify.
+    /// </summary>
+    public string? LiveCallbackUrl { get; set; }
+
+    /// <summary>Shared secret the FHIR server sends in the X-Baton-Hook header; when set, other calls get 401.</summary>
+    public string? HookSecret { get; set; }
 
     /// <summary>The synthetic shift is fixed in time, so "now" defaults to a moment inside it.</summary>
     public DateTimeOffset DefaultAt { get; set; } = new(2026, 11, 23, 23, 30, 0, TimeSpan.FromHours(3));
