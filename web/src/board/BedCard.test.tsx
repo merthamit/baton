@@ -36,7 +36,7 @@ describe('BedCard content', () => {
   it('names the bed, patient, age and the diagnosis as served', () => {
     card(bed());
     expect(screen.getByText('Bed 02 · Ayşe K., 71')).toBeInTheDocument();
-    expect(screen.getByText('Community-acquired pneumonia')).toBeInTheDocument();
+    expect(screen.getByText('Community-acquired pneumonia')).toHaveAttribute('title', 'Community-acquired pneumonia');
   });
 
   it('uses the Turkish bed label', () => {

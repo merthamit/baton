@@ -27,3 +27,20 @@ jobs:
         run: |
           curl -sSfL -o validator_cli.jar "https://github.com/hapifhir/org.hl7.fhir.core/releases/download/${HL7_VALIDATOR_VERSION}/validator_cli.jar"
           java -jar validator_cli.jar artifacts/fhir-examples/*.json -version 4.0.1 -tx n/a
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

@@ -70,7 +70,11 @@ export function BedCard({ bed, selected, onSelect }: BedCardProps) {
         <span className="bed-title" id={ids.title}>
           {title}
         </span>
-        {bed.diagnosis && <span className="bed-dx">{t.scenarioDiagnosis(bed.diagnosis)}</span>}
+        {bed.diagnosis && (
+          <span className="bed-dx" title={bed.diagnosis}>
+            {t.scenarioDiagnosis(bed.diagnosis)}
+          </span>
+        )}
       </span>
 
       {latest ? (
