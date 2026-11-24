@@ -17,6 +17,12 @@ public sealed record SimulationOptions(DateTimeOffset ShiftStart)
 
     /// <summary>One set of observations taken late (decision 9A); null when every set is on time.</summary>
     public LateObservation? LateObservation { get; init; }
+
+    /// <summary>
+    /// Try mode: from this hour on the user calls clinicians, so the simulator raises no automatic doctor or critical
+    /// care calls (Baton's alert is still recorded). Null keeps the scenario's own calls for the whole shift.
+    /// </summary>
+    public double? ScriptedEscalationUntilHour { get; init; }
 }
 
 /// <summary>
@@ -71,6 +77,7 @@ public static class ShiftSimulator
             var (vitals, input, score) = Measure(Delay.Apply(card, hour, options.TreatmentDelayHours), card, authorisation, random, options.NoiseLevel);
             measurements.Add(new Measurement(hour, AtMinute(options.ShiftStart, hour), vitals, input, score));
 
+            var scripted = options.ScriptedEscalationUntilHour is not { } until || hour < until;
             var urgent = score.Risk is RiskLevel.LowMedium or RiskLevel.Medium or RiskLevel.High;
             if (urgent && !alerted)
             {
@@ -78,13 +85,13 @@ public static class ShiftSimulator
                 events.Add(new ScenarioEvent(hour, ScenarioEventKind.Alert, $"NEWS2 {score.Total}: urgent review needed"));
                 // No call when the card's doctor is already there (a card started earlier in the shift can put the
                 // arrival before the first alert); otherwise the call would never be answered.
-                if (!events.Any(e => e.Kind == ScenarioEventKind.DoctorArrived && e.Hour <= hour + DoctorCallDelayHours))
+                if (scripted && !events.Any(e => e.Kind == ScenarioEventKind.DoctorArrived && e.Hour <= hour + DoctorCallDelayHours))
                 {
                     events.Add(new ScenarioEvent(hour + DoctorCallDelayHours, ScenarioEventKind.DoctorCalled, "Nurse called the on-call doctor"));
                 }
             }
 
-            if (score.Risk == RiskLevel.High && !criticalCareCalled)
+            if (score.Risk == RiskLevel.High && !criticalCareCalled && scripted)
             {
                 criticalCareCalled = true;
                 events.Add(new ScenarioEvent(hour + CriticalCareCallDelayHours, ScenarioEventKind.CriticalCareCalled, $"NEWS2 {score.Total}: critical care team called"));
