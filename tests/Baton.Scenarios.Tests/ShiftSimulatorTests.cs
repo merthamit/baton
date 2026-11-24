@@ -67,4 +67,31 @@ public class ShiftSimulatorTests
         Assert.Contains(events, e => e.Kind == ScenarioEventKind.Concern);
         Assert.Equal(events.OrderBy(e => e.Hour), events);
     }
+
+    // Characterisation: the measurement schedule of the default ward (noise 0) as it was before the schedule
+    // rule moved to Baton.Core. Indexed by bed position so renaming beds does not touch it.
+    public static TheoryData<double, int, double[]> DefaultWardHours => new()
+    {
+        { 0, 0, [0, 12] },
+        { 0, 1, [0, 12, 13.25, 15.25, 16.25, 17.25, 18.25, 19.25, 21.25, 23.25] },
+        { 0, 2, [0, 12] },
+        { 0, 3, [0, 12, 14.5, 15.5, 16.5, 17.5, 19.5, 21.5, 23.5] },
+        { 0, 4, [0, 4, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 21, 23] },
+        { 0, 5, [0, 1, 5, 9, 21] },
+        { 0, 6, [0, 7.25, 9.25, 10.25, 11.25, 12.25, 13.25, 15.25, 17.25, 19.25, 21.25, 23.25] },
+        { 0, 7, [0, 12] },
+        { 3, 1, [0, 12, 13.25, 15.25, 16.25, 17.25, 18.25, 19.25, 20.25, 21.25, 22.25] },
+        { 3, 3, [0, 12, 14.5, 15.5, 16.5, 17.5, 18.5, 19.5, 20.5, 21.5, 22.5] },
+        { 3, 4, [0, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 19, 21, 23] },
+        { 3, 6, [0, 7.25, 9.25, 10.25, 11.25, 12.25, 13.25, 14.25, 15.25, 16.25, 18.25, 20.25, 22.25] },
+    };
+
+    [Theory]
+    [MemberData(nameof(DefaultWardHours))]
+    public void DefaultWard_MeasurementHours_AreUnchanged(double delay, int bedIndex, double[] hours)
+    {
+        var ward = Ward.Generate(Quiet.ShiftStart, 42, noiseLevel: 0, treatmentDelayHours: delay);
+
+        Assert.Equal(hours, ward[bedIndex].Patient.Measurements.Select(m => Math.Round(m.Hour, 6)));
+    }
 }

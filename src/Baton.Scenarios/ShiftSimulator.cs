@@ -74,7 +74,7 @@ public static class ShiftSimulator
                 events.Add(new ScenarioEvent(hour + CriticalCareCallDelayHours, ScenarioEventKind.CriticalCareCalled, $"NEWS2 {score.Total}: critical care team called"));
             }
 
-            hour = NextMeasurement(hour, score, concerns);
+            hour = NextMeasurement(options.ShiftStart, hour, score, concerns);
         }
 
         return new SimulatedPatient(card, measurements, events.OrderBy(e => e.Hour).ToList());
@@ -107,23 +107,10 @@ public static class ShiftSimulator
         return (truth, input, score);
     }
 
-    private static double NextMeasurement(double hour, News2Result score, List<double> concerns)
+    private static double NextMeasurement(DateTimeOffset shiftStart, double hour, News2Result score, List<double> concerns)
     {
-        var interval = score.Response switch
-        {
-            ClinicalResponse.RoutineMonitoring => 12.0,
-            ClinicalResponse.WardBasedResponse => 4.0,
-            _ => 1.0,
-        };
-
-        if (concerns.Any(c => c <= hour))
-        {
-            interval = Math.Min(interval, 2.0);
-        }
-
-        var next = hour + interval;
-        var pending = concerns.FirstOrDefault(c => c > hour && c + 1 < next, double.NaN);
-        return double.IsNaN(pending) ? next : pending + 1;
+        var due = MonitoringSchedule.NextDue(shiftStart.AddHours(hour), score.Response, concerns.Select(c => shiftStart.AddHours(c)).ToList());
+        return (due - shiftStart).TotalHours;
     }
 
     // Doctor arrival, treatment and anything the card says happens after the treatment move with the delay,
