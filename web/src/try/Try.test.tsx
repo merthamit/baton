@@ -79,6 +79,20 @@ describe('Try mode', () => {
     expect(fetchMock.mock.calls.some(([url, init]) => String(url) === '/api/try/s1' && init?.method === 'DELETE')).toBe(true);
   });
 
+  it('never restarts Try silently when the pressed Try button is clicked again', async () => {
+    const fetchMock = route(api());
+    renderIn(<App />);
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bed 02/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Try' })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: 'Try' }));
+    await screen.findByText(/Try: Bed 02/);
+    await userEvent.click(screen.getByRole('button', { name: 'Try' }));
+
+    const starts = fetchMock.mock.calls.filter(([url, init]) => String(url) === '/api/try' && init?.method === 'POST');
+    expect(starts).toHaveLength(1);
+  });
+
   it('returns to Watch with a message when the session has expired', async () => {
     route(api(true, () => respond(404, { title: 'Try session expired' })));
     renderIn(<App />);

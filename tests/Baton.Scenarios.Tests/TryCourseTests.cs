@@ -103,4 +103,20 @@ public class TryCourseTests
 
         Assert.Contains(result.Records, r => r is PatientOrFamilyConcern p && p.By == TryCourse.Family && p.Text == "She is not herself");
     }
+
+    [Fact]
+    public void Assessment_AttachesToTheLatestArrivedCall()
+    {
+        // start 02:00 (after the scenario's critical care arrival 00:30); senior called 02:10, arrives 02:25
+        var result = Run(
+            1,
+            18,
+            Call(18.1667, EscalationTier.SeniorDoctor),
+            new TryAction(TryActionKind.Assessed, At(18.2), "Too early"), // 02:12: the senior doctor is not there yet
+            new TryAction(TryActionKind.Assessed, At(18.5), "Septic"));
+
+        var senior = result.Records.OfType<Called>().Single(c => c.Tier == EscalationTier.SeniorDoctor);
+        Assert.Equal(senior.CallId, result.Records.OfType<Assessed>().Single(a => a.Text == "Septic").CallId);
+        Assert.DoesNotContain(result.Records, r => r is Assessed a && a.Text == "Too early"); // never pinned on an earlier team
+    }
 }

@@ -32,10 +32,13 @@ export function ActionPanel({ patientName, bedLabel, at, lastActionAt, state, on
   const { t } = useT();
   const [pending, setPending] = useState<Pending | null>(null);
   const [refused, setRefused] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const clockOk = minutesBetween(lastActionAt, at) >= 0;
-  const arrived = state.calls.some((c) => c.arrivedAt && minutesBetween(c.arrivedAt, at) >= 0);
-  const assessed = state.calls.some((c) => c.assessedAt && minutesBetween(c.assessedAt, at) >= 0);
+  // The latest call made by now decides: an assessment or plan belongs to the clinician just called, never an earlier team.
+  const latest = [...state.calls].filter((c) => minutesBetween(c.calledAt, at) >= 0).sort((a, b) => Date.parse(a.calledAt) - Date.parse(b.calledAt)).at(-1);
+  const clockOk = minutesBetween(lastActionAt, at) >= 0 && !busy;
+  const arrived = !!latest?.arrivedAt && minutesBetween(latest.arrivedAt, at) >= 0;
+  const assessed = !!latest?.assessedAt && minutesBetween(latest.assessedAt, at) >= 0;
   const suggested = state.suggestedNextTier;
 
   const open = (p: Pending) => {
@@ -46,13 +49,18 @@ export function ActionPanel({ patientName, bedLabel, at, lastActionAt, state, on
   const confirm = async (result: DialogResult) => {
     const kind = pending!.kind;
     setPending(null);
-    setRefused(await onAction(kind, result));
+    setBusy(true);
+    try {
+      setRefused(await onAction(kind, result));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <section className="actions" aria-label={t.tryActions}>
       <h3>{t.tryActions}</h3>
-      {!clockOk && <p className="reason">{t.reasonClock(clock(lastActionAt))}</p>}
+      {!clockOk && !busy && <p className="reason">{t.reasonClock(clock(lastActionAt))}</p>}
       <div className="action-buttons">
         <button type="button" className="btn" disabled={!clockOk} onClick={() => open({ kind: 'Concern', label: t.actConcern, withNote: true, withTier: false })}>
           {t.actConcern}

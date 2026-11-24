@@ -114,6 +114,11 @@ app.MapPost("/api/try", async (TryStartRequest body, TrySessions tries, Cancella
         return Results.Problem("Try mode needs the in-memory data source.", statusCode: StatusCodes.Status409Conflict, title: "Try mode unavailable");
     }
 
+    if (string.IsNullOrWhiteSpace(body.PatientId))
+    {
+        return Results.Problem("patientId is required.", statusCode: StatusCodes.Status400BadRequest);
+    }
+
     var patients = await source.GetPatientsAsync(ct);
     if (TrySessions.BedIndexOf(body.PatientId) is not { } bedIndex || patients.All(p => p.Id != body.PatientId))
     {

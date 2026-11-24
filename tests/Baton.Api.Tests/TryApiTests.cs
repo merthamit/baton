@@ -178,4 +178,48 @@ public class TryApiTests(WebApplicationFactory<Program> factory) : IClassFixture
 
         Assert.True(memory.RootElement.GetProperty("tryAvailable").GetBoolean());
     }
+
+    [Fact]
+    public async Task Assessment_NeedsTheLatestCallsDoctor_NotAnEarlierTeam()
+    {
+        var client = ClientWith();
+        var session = await StartTry(client, hour: 18); // 02:00, after the scenario's critical care arrival (00:30)
+        await Act(client, session, "Call", 18.1667, tier: "SeniorDoctor"); // 02:10, arrives 02:25
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await Act(client, session, "Assessed", 18.2, "Septic")).StatusCode); // 02:12
+        Assert.Equal(HttpStatusCode.OK, (await Act(client, session, "Assessed", 18.5, "Septic")).StatusCode); // 02:30
+    }
+
+    [Fact]
+    public async Task UnknownKindOrTier_Returns400()
+    {
+        var client = ClientWith();
+        var session = await StartTry(client);
+
+        var kind = await client.PostAsJsonAsync($"/api/try/{session}/actions", new { kind = 99, at = At(15) });
+        var tier = await client.PostAsJsonAsync($"/api/try/{session}/actions", new { kind = "Call", at = At(15), tier = 99 });
+
+        Assert.Equal(HttpStatusCode.BadRequest, kind.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, tier.StatusCode);
+    }
+
+    [Fact]
+    public async Task MissingPatient_Returns400()
+    {
+        var response = await ClientWith().PostAsJsonAsync("/api/try", new { at = At(14) });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ConcurrentActions_NeverGoBackInTime()
+    {
+        var client = ClientWith();
+        var session = await StartTry(client);
+
+        await Task.WhenAll(Enumerable.Range(0, 20).Select(i => Act(client, session, "Concern", 14.25 + ((19 - i) * 0.25))));
+        var late = await Act(client, session, "Concern", 14.5);
+
+        Assert.Equal(HttpStatusCode.BadRequest, late.StatusCode); // the last accepted moment is the latest one, never an earlier one
+    }
 }

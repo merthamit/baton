@@ -121,7 +121,13 @@ export function App() {
             <button type="button" aria-pressed={!trySession} onClick={reset}>
               {t.modeWatch}
             </button>
-            <button type="button" aria-pressed={!!trySession} disabled={!trySession && (!tryAvailable || !view.bed)} onClick={() => void begin()}>
+            {/* Pressed while Try is on: clicking it again never restarts Try (that would drop the actions or switch patient). */}
+            <button
+              type="button"
+              aria-pressed={!!trySession}
+              disabled={!trySession && (!tryAvailable || !view.bed)}
+              onClick={() => (trySession ? undefined : void begin())}
+            >
               {t.modeTry}
             </button>
           </div>

@@ -69,10 +69,11 @@ public static class TryCourse
                     records.Add(new Called(action.At, You, callId, tier));
                     records.Add(Arrival(callId, tier, action.At, onCallGap));
                     break;
-                case TryActionKind.Assessed when (latestArrivedCall = LatestArrivedCall(records, action.At)) is not null:
+                case TryActionKind.Assessed when (latestArrivedCall = AnsweredLatestCall(records, action.At)) is not null:
                     records.Add(new Assessed(action.At, You, latestArrivedCall, action.Text ?? ""));
                     break;
-                case TryActionKind.Planned when (latestArrivedCall = LatestArrivedCall(records, action.At)) is not null:
+                case TryActionKind.Planned when (latestArrivedCall = AnsweredLatestCall(records, action.At)) is not null
+                    && records.OfType<Assessed>().Any(a => a.CallId == latestArrivedCall && a.At <= action.At):
                     records.Add(new Planned(action.At, You, latestArrivedCall, action.Text ?? ""));
                     break;
             }
@@ -122,8 +123,16 @@ public static class TryCourse
         _ => new Arrived(calledAt + onCallGap, ScenarioEscalation.OnCallDoctor, callId, Simulated: true),
     };
 
-    private static string? LatestArrivedCall(List<EscalationRecord> records, DateTimeOffset at) =>
-        records.OfType<Arrived>().Where(a => a.At <= at).OrderBy(a => a.At).LastOrDefault()?.CallId;
+    /// <summary>
+    /// The latest call made at or before <paramref name="at"/>, if its clinician is already there; otherwise null. An
+    /// assessment or plan belongs to the clinician just called, never to an earlier team.
+    /// </summary>
+    public static string? AnsweredLatestCall(IReadOnlyList<EscalationRecord> records, DateTimeOffset at)
+    {
+        ArgumentNullException.ThrowIfNull(records);
+        var latest = records.OfType<Called>().Where(c => c.At <= at).OrderBy(c => c.At).LastOrDefault();
+        return latest is not null && records.OfType<Arrived>().Any(a => a.CallId == latest.CallId && a.At <= at) ? latest.CallId : null;
+    }
 
     private static WardBed Simulate(BedPlan plan, ScenarioCard card, DateTimeOffset shiftStart, int seed, int bedIndex, double noiseLevel, double delay, double? until)
     {

@@ -35,7 +35,7 @@ public sealed class TrySession(string id, string patientId, int bedIndex, DateTi
         }
     }
 
-    public DateTimeOffset LastActionAt => Actions.Count == 0 ? StartedAt : Actions[^1].At;
+    public DateTimeOffset LastActionAt => Actions.Count == 0 ? StartedAt : Actions.Max(a => a.At);
 
     internal void Add(TryAction action)
     {
@@ -101,6 +101,20 @@ public sealed class TrySessions(TimeProvider time, BatonOptionsSnapshot settings
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(action);
 
+        if (!Enum.IsDefined(action.Kind) || (action.Tier is { } tier && !Enum.IsDefined(tier)))
+        {
+            return "Unknown action or tier.";
+        }
+
+        // Check and record under the session's lock, so two requests at once cannot both pass the order rule.
+        lock (session.Gate)
+        {
+            return AddLocked(session, action);
+        }
+    }
+
+    private string? AddLocked(TrySession session, TryAction action)
+    {
         if (action.At < session.LastActionAt)
         {
             return $"An action must be at or after the last one ({session.LastActionAt:HH:mm}).";
@@ -112,12 +126,13 @@ public sealed class TrySessions(TimeProvider time, BatonOptionsSnapshot settings
         }
 
         var records = Run(session).Records;
-        if (action.Kind == TryActionKind.Assessed && !records.OfType<Arrived>().Any(a => a.At <= action.At))
+        var answered = TryCourse.AnsweredLatestCall(records, action.At);
+        if (action.Kind is TryActionKind.Assessed or TryActionKind.Planned && answered is null)
         {
-            return "The doctor has not arrived yet: an assessment needs the doctor there.";
+            return "The doctor you called has not arrived yet: an assessment or plan needs that doctor there.";
         }
 
-        if (action.Kind == TryActionKind.Planned && !records.OfType<Assessed>().Any(a => a.At <= action.At))
+        if (action.Kind == TryActionKind.Planned && !records.OfType<Assessed>().Any(a => a.CallId == answered && a.At <= action.At))
         {
             return "Record the assessment before the plan.";
         }

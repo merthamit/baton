@@ -47,6 +47,27 @@ describe('ActionPanel', () => {
     expect(screen.getByRole('button', { name: 'Record plan' })).toBeDisabled();
   });
 
+  it('keeps the assessment for the doctor just called, not an earlier team', () => {
+    const earlier = call({ callId: 'c1', tier: 'CriticalCare', calledAt: '2026-11-24T00:20:00+03:00', arrivedAt: '2026-11-24T00:30:00+03:00' });
+    const senior = call({ callId: 'c2', tier: 'SeniorDoctor', calledAt: '2026-11-24T01:10:00+03:00', arrivedAt: '2026-11-24T01:25:00+03:00' });
+    renderIn(<ActionPanel {...base} at="2026-11-24T01:12:00+03:00" state={chain({ calls: [earlier, senior] })} onAction={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: 'Record assessment' })).toBeDisabled();
+  });
+
+  it('records once when Confirm is pressed twice quickly', async () => {
+    let resolve: (v: string | null) => void = () => undefined;
+    const onAction = vi.fn(() => new Promise<string | null>((r) => (resolve = r)));
+    renderIn(<ActionPanel {...base} state={noChain} onAction={onAction} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Call doctor' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(screen.getByRole('button', { name: 'Call doctor' })).toBeDisabled();
+    resolve(null);
+
+    expect(onAction).toHaveBeenCalledTimes(1);
+  });
+
   it('offers the suggested tier as its own action', async () => {
     const onAction = vi.fn().mockResolvedValue(null);
     renderIn(<ActionPanel {...base} state={chain({ suggestedNextTier: 'CriticalCare' })} onAction={onAction} />);
