@@ -1,0 +1,204 @@
+/* Patient detail: header pill, chart beside the event timeline, observation table. */
+
+.patient {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.patient-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: start;
+  gap: 8px 16px;
+}
+
+.patient-head p {
+  margin: 2px 0 0;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  border-radius: 999px;
+  padding: 4px 12px;
+  background: var(--bg);
+}
+
+.pill[data-tier='0'] {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.pill[data-tier='1'] {
+  background: var(--mid-bg);
+  color: var(--mid);
+}
+
+.pill[data-tier='2'] {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.pill[data-tier='3'] {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+.patient-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 880px) {
+  .patient-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.chart text {
+  font-family: var(--f-data);
+  font-size: 11px;
+  fill: var(--muted);
+}
+
+.chart .line {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+
+.chart .dot {
+  stroke: var(--panel);
+  stroke-width: 1.5;
+}
+
+.chart .now {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.chart .marker {
+  color: var(--muted);
+}
+
+.chart .marker line {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.6;
+}
+
+.timeline {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.timeline p {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.timeline ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.timeline li {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.86rem;
+}
+
+.timeline li:last-child {
+  border-bottom: 0;
+}
+
+.timeline .tm {
+  color: var(--muted);
+}
+
+.timeline li[data-kind='Concern'] b {
+  color: var(--warn);
+}
+
+.timeline li[data-kind='DoctorCalled'] b,
+.timeline li[data-kind='CriticalCareCalled'] b {
+  color: var(--bad);
+}
+
+.tablewrap {
+  overflow-x: auto;
+}
+
+.patient table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 640px;
+  font-size: 0.86rem;
+  font-family: var(--f-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.patient th,
+.patient td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.patient thead th {
+  font-family: var(--f-body);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.patient th:first-child {
+  text-align: left;
+  font-weight: 400;
+}
+
+.patient td[data-sub='1'] {
+  background: var(--mid-bg);
+  color: var(--mid);
+}
+
+.patient td[data-sub='2'] {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.patient td[data-sub='3'] {
+  background: var(--bad-bg);
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.patient td.total {
+  font-weight: 700;
+}

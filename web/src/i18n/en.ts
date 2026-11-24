@@ -76,7 +76,6 @@ export const en = {
   patientLoading: 'Loading the patient…',
   chartLabel: (bed: string, from: string, to: string) => `NEWS2 over the shift for ${bed}, ${from} to ${to}`,
   events: 'Events',
-  eventsHint: 'Faded events have not happened yet at the chosen time.',
   noEvents: 'No events this shift.',
   observations: 'Observations',
   colTime: 'Time',

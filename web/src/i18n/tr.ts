@@ -76,7 +76,6 @@ export const tr: Messages = {
   patientLoading: 'Hasta yükleniyor…',
   chartLabel: (bed: string, from: string, to: string) => `${bed} için vardiya boyunca NEWS2, ${from}–${to}`,
   events: 'Olaylar',
-  eventsHint: 'Soluk olaylar seçilen saatte henüz olmadı.',
   noEvents: 'Bu vardiyada olay yok.',
   observations: 'Ölçümler',
   colTime: 'Saat',

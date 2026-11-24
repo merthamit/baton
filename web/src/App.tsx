@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiError, fetchWard } from './api/client';
+import { ApiError, fetchPatient, fetchWard } from './api/client';
 import { useLatest } from './api/useLatest';
 import { BoardSkeleton, WardBoard } from './board/WardBoard';
 import { TimeControl } from './board/TimeControl';
 import { LanguageToggle, useT } from './i18n/LanguageProvider';
+import { PatientDetail } from './patient/PatientDetail';
 import { readUrlState, writeUrlState } from './url';
 import './board/board.css';
 
@@ -11,6 +12,11 @@ export function App() {
   const { t } = useT();
   const [view, setView] = useState(() => readUrlState(window.location.search));
   const ward = useLatest((signal) => fetchWard(view.at, signal), [view.at]);
+  const at = view.at ?? ward.data?.at;
+  const patient = useLatest(
+    (signal) => (view.bed && at ? fetchPatient(view.bed, at, signal) : Promise.resolve(undefined)),
+    [view.bed, at],
+  );
 
   useEffect(() => {
     const search = writeUrlState(view);
@@ -60,8 +66,12 @@ export function App() {
 
       {data ? <WardBoard ward={data} selectedId={view.bed} onSelect={selectBed} /> : !ward.error && <BoardSkeleton />}
 
-      <section className="detail" aria-live="polite">
-        <p className="muted">{t.selectHint}</p>
+      <section className="detail" aria-label={t.observations}>
+        {data && patient.data && at ? (
+          <PatientDetail series={patient.data} at={at} shiftStart={data.shiftStart} shiftEnd={data.shiftEnd} />
+        ) : (
+          <p className="muted">{view.bed && patient.loading ? t.patientLoading : t.selectHint}</p>
+        )}
       </section>
 
       <footer className="foot muted">{t.syntheticDetail}</footer>
