@@ -88,7 +88,7 @@ public class ReviewFindingTests
     {
         var json = WardJson.Serialize(Ward.Generate(Start, 42), Start, 42, 0);
         using var doc = JsonDocument.Parse(json);
-        var y02 = doc.RootElement.GetProperty("beds").EnumerateArray().Single(b => b.GetProperty("bed").GetString() == "Y-02");
+        var y02 = doc.RootElement.GetProperty("beds").EnumerateArray().Single(b => b.GetProperty("bed").GetString() == "02");
 
         var doctor = y02.GetProperty("events").EnumerateArray().Single(e => e.GetProperty("kind").GetString() == "DoctorArrived");
         Assert.Equal(Start.AddMinutes((15 * 60) + 40), doctor.GetProperty("at").GetDateTimeOffset());

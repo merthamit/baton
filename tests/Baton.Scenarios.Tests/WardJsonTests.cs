@@ -13,7 +13,7 @@ public class WardJsonTests
         var beds = doc.RootElement.GetProperty("beds");
 
         Assert.Equal(8, beds.GetArrayLength());
-        var y02 = beds.EnumerateArray().Single(b => b.GetProperty("bed").GetString() == "Y-02");
+        var y02 = beds.EnumerateArray().Single(b => b.GetProperty("bed").GetString() == "02");
         Assert.Equal(ward[1].Patient.Measurements.Count, y02.GetProperty("measurements").GetArrayLength());
         Assert.Equal(ward[1].Patient.Events.Count, y02.GetProperty("events").GetArrayLength());
 

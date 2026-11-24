@@ -25,7 +25,7 @@ public class ApiTests(WebApplicationFactory<Program> factory) : IClassFixture<We
 
     [Theory]
     [InlineData(15.5)]  // 23:30
-    [InlineData(15.25)] // 23:15, exactly Y-02's measurement time
+    [InlineData(15.25)] // 23:15, exactly bed 02's measurement time
     [InlineData(20)]    // 04:00
     public async Task Ward_ScoresMatchTheGenerator(double hour)
     {
@@ -56,7 +56,7 @@ public class ApiTests(WebApplicationFactory<Program> factory) : IClassFixture<We
     public async Task Ward_GivesThePreviousScoreForTheTrend()
     {
         using var doc = JsonDocument.Parse(await Client.GetStringAsync($"/api/ward?at={At(15.5)}"));
-        var y02 = doc.RootElement.GetProperty("beds").EnumerateArray().Single(b => b.GetProperty("bed").GetString() == "Y-02");
+        var y02 = doc.RootElement.GetProperty("beds").EnumerateArray().Single(b => b.GetProperty("bed").GetString() == "02");
 
         Assert.Equal(Generated[1].Patient.Measurements.Single(m => m.Hour == 13.25).Score.Total, y02.GetProperty("previous").GetProperty("total").GetInt32());
     }
@@ -64,7 +64,7 @@ public class ApiTests(WebApplicationFactory<Program> factory) : IClassFixture<We
     [Fact]
     public async Task Patient_SeriesMatchesTheGenerator()
     {
-        var bed = Generated[4]; // Y-05, COPD on Scale 2
+        var bed = Generated[4]; // bed 05, COPD on Scale 2
         using var doc = JsonDocument.Parse(await Client.GetStringAsync($"/api/patients/{bed.PatientId}?at={At(23.9)}"));
         var points = doc.RootElement.GetProperty("points").EnumerateArray().ToList();
 

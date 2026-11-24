@@ -37,7 +37,7 @@ public class ReviewFindingTests(WebApplicationFactory<Program> factory) : IClass
     public async Task At_Garbage_IsRejected()
     {
         Assert.Equal(HttpStatusCode.BadRequest, (await Client.GetAsync("/api/ward?at=yesterday")).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await Client.GetAsync("/api/patients/synthetic-y-02?at=yesterday")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await Client.GetAsync("/api/patients/synthetic-02?at=yesterday")).StatusCode);
     }
 
     [Fact]

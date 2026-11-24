@@ -40,7 +40,7 @@ public class WardFhirBundleTests
 
         Assert.Equal(Bed.PatientId, patient.Id);
         var bed = Assert.Single(patient.Identifier, i => i.System == WardFhirBundle.BedSystem);
-        Assert.Equal("Y-02", bed.Value);
+        Assert.Equal("02", bed.Value);
         Assert.Equal("Ayşe K.", patient.Name.Single().Text);
         Assert.Contains(patient.Meta!.Tag, t => t.Code == "synthetic");
         Assert.Null(patient.GetExtension(WardFhirBundle.Scale2Extension));
@@ -49,7 +49,7 @@ public class WardFhirBundleTests
     [Fact]
     public void Scale2Patient_CarriesTheRecordedDecision()
     {
-        var copd = Ward.Generate(CardFidelityTests.Quiet.ShiftStart, 42).Single(b => b.Bed == "Y-05");
+        var copd = Ward.Generate(CardFidelityTests.Quiet.ShiftStart, 42).Single(b => b.Bed == "05");
         var patient = (Patient)WardFhirBundle.Build(copd).Entry.Single(e => e.Resource is Patient).Resource!;
 
         var decision = patient.GetExtension(WardFhirBundle.Scale2Extension);
