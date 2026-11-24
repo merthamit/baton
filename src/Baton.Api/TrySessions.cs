@@ -108,14 +108,14 @@ public sealed class TrySessions(TimeProvider time, BatonOptionsSnapshot settings
     public bool Remove(string id) => sessions.TryRemove(id, out _);
 
     /// <summary>Records the action, or returns the rule it breaks.</summary>
-    public string? Add(TrySession session, TryAction action)
+    public TryRefusal? Add(TrySession session, TryAction action)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(action);
 
         if (!Enum.IsDefined(action.Kind) || (action.Tier is { } tier && !Enum.IsDefined(tier)))
         {
-            return "Unknown action or tier.";
+            return new("unknown", "Unknown action or tier.");
         }
 
         // Check and record under the session's lock, so two requests at once cannot both pass the order rule.
@@ -125,38 +125,38 @@ public sealed class TrySessions(TimeProvider time, BatonOptionsSnapshot settings
         }
     }
 
-    private string? AddLocked(TrySession session, TryAction action)
+    private TryRefusal? AddLocked(TrySession session, TryAction action)
     {
         if (session.Actions.Count >= MaxActions)
         {
-            return $"A Try session holds at most {MaxActions} actions. Reset to start again.";
+            return new("too-many", $"A Try session holds at most {MaxActions} actions. Reset to start again.");
         }
 
         if (action.Text?.Length > MaxTextLength)
         {
-            return $"A note can be at most {MaxTextLength} characters.";
+            return new("note-too-long", $"A note can be at most {MaxTextLength} characters.");
         }
 
         if (action.At < session.LastActionAt)
         {
-            return $"An action must be at or after the last one ({session.LastActionAt:HH:mm}).";
+            return new("before-last", $"An action must be at or after the last one ({session.LastActionAt:HH:mm}).");
         }
 
         if (action.At < ShiftStart || action.At >= ShiftEnd)
         {
-            return "An action must be inside the shift.";
+            return new("outside-shift", "An action must be inside the shift.");
         }
 
         var records = Run(session).Records;
         var answered = TryCourse.AnsweredLatestCall(records, action.At);
         if (action.Kind is TryActionKind.Assessed or TryActionKind.Planned && answered is null)
         {
-            return "The doctor you called has not arrived yet: an assessment or plan needs that doctor there.";
+            return new("no-arrival", "The doctor you called has not arrived yet: an assessment or plan needs that doctor there.");
         }
 
         if (action.Kind == TryActionKind.Planned && !records.OfType<Assessed>().Any(a => a.CallId == answered && a.At <= action.At))
         {
-            return "Record the assessment before the plan.";
+            return new("assessment-first", "Record the assessment before the plan.");
         }
 
         session.Add(action);
@@ -166,7 +166,7 @@ public sealed class TrySessions(TimeProvider time, BatonOptionsSnapshot settings
     public TryResult Run(TrySession session)
     {
         ArgumentNullException.ThrowIfNull(session);
-        return TryCourse.Run(ShiftStart, settings.Seed, session.BedIndex, 1, session.StartedAt, session.Actions);
+        return TryCourse.Run(ShiftStart, settings.Seed, session.BedIndex, 1, session.StartedAt, session.Actions, settings.TreatmentDelayHours);
     }
 
     /// <summary>The bed index of a synthetic patient id ("synthetic-02" → 1), or null.</summary>
@@ -179,7 +179,10 @@ public sealed class TrySessions(TimeProvider time, BatonOptionsSnapshot settings
 }
 
 /// <summary>The settings Try needs, taken once at startup.</summary>
-public sealed record BatonOptionsSnapshot(DateTimeOffset ShiftStart, int Seed);
+public sealed record BatonOptionsSnapshot(DateTimeOffset ShiftStart, int Seed, double TreatmentDelayHours = 0);
+
+/// <summary>Why an action is refused: a stable code the UI translates (problem type urn:baton:try:{Code}) and English.</summary>
+public sealed record TryRefusal(string Code, string Message);
 
 /// <summary>
 /// The ward with one patient's Try course laid over it: that patient's observations, events and escalation records come

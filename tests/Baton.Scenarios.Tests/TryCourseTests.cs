@@ -131,4 +131,22 @@ public class TryCourseTests
     {
         Assert.Equal(TimeSpan.FromMinutes(minutes), TryCourse.OnCallArrivalGap(Watch[bedIndex].Patient.Events));
     }
+
+    [Fact]
+    public void BeforeTheStartTheCourseMatchesTheBoardWithATreatmentDelay()
+    {
+        // The board was generated with a 2-hour treatment delay; Try must keep that past, not the delay-free one.
+        var shiftStart = new DateTimeOffset(2026, 11, 23, 8, 0, 0, TimeSpan.FromHours(3));
+        var board = Ward.Generate(shiftStart, 42, treatmentDelayHours: 2)[1];
+        var start = ShiftSimulator.AtMinute(shiftStart, 19); // 03:00
+
+        var result = TryCourse.Run(shiftStart, 42, 1, 1, start, [], treatmentDelayHours: 2);
+
+        Assert.Equal(
+            ScenarioEscalation.From(board, shiftStart).Where(r => r.At < start).OrderBy(r => r.At).Select(r => (r.At, r.GetType().Name)),
+            result.Records.Select(r => (r.At, r.GetType().Name)));
+        Assert.Equal(
+            board.Patient.Measurements.Where(m => m.At < start).Select(m => m.Score.Total),
+            result.Bed.Patient.Measurements.Where(m => m.At < start).Select(m => m.Score.Total));
+    }
 }

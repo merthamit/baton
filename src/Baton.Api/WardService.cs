@@ -259,7 +259,8 @@ public sealed class WardService(IVitalSignsSource source, EscalationOptions? esc
             var options = new ReadOptions(time, MaxReadingAge)
             {
                 SpO2Scale = patient.SpO2Scale,
-                Scale2Authorisation = patient.Scale2Authorisation,
+                // RCP 2017: Scale 2 needs a recorded decision; sets before it are scored without one.
+                Scale2Authorisation = patient.Scale2Authorisation is { } decision && decision.AuthorisedAt <= time ? decision : null,
             };
             var reading = VitalSignsReader.Read(observations.Where(o => TimeOf(o) is { } t && t <= time), options);
             var score = News2Calculator.Calculate(reading.Input);

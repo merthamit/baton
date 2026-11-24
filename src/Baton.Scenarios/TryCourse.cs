@@ -33,7 +33,7 @@ public static class TryCourse
     public static readonly TimeSpan SeniorArrival = TimeSpan.FromMinutes(15);
     public static readonly TimeSpan CriticalCareArrival = TimeSpan.FromMinutes(10);
 
-    public static TryResult Run(DateTimeOffset shiftStart, int seed, int bedIndex, double noiseLevel, DateTimeOffset startAt, IReadOnlyList<TryAction> actions)
+    public static TryResult Run(DateTimeOffset shiftStart, int seed, int bedIndex, double noiseLevel, DateTimeOffset startAt, IReadOnlyList<TryAction> actions, double treatmentDelayHours = 0)
     {
         ArgumentNullException.ThrowIfNull(actions);
         var plan = Ward.Plan(Ward.MaxBeds)[bedIndex];
@@ -41,7 +41,8 @@ public static class TryCourse
         var startHour = (startAt - shiftStart).TotalHours;
 
         // Watch, to keep what happened before the start and to read the card's own response times.
-        var watch = Simulate(plan, card, shiftStart, seed, bedIndex, noiseLevel, delay: 0, until: null);
+        // The board's own treatment delay (Baton:TreatmentDelayHours), so the past matches what the board showed.
+        var watch = Simulate(plan, card, shiftStart, seed, bedIndex, noiseLevel, delay: treatmentDelayHours, until: null);
         var onCallGap = OnCallArrivalGap(watch.Patient.Events);
         var treatmentGap = ArrivalToTreatmentGap(card);
 
@@ -85,6 +86,12 @@ public static class TryCourse
             var arrivals = records.OfType<Arrived>().Select(a => (a.At - shiftStart).TotalHours).ToList();
             var treatment = arrivals.Count > 0 ? arrivals.Min() + treatmentGap.TotalHours : ShiftSimulator.ShiftHours;
             delay = Math.Max(0, treatment - rule.TreatmentHour);
+
+            // An arrival before the start belongs to the board's past, which was generated with its own delay.
+            if (arrivals.Count > 0 && arrivals.Min() < startHour)
+            {
+                delay = Math.Max(delay, treatmentDelayHours);
+            }
         }
 
         // The user's concerns replace the card's from the start on (they drive the 3C schedule).

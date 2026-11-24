@@ -39,7 +39,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(sp =>
 {
     var options = sp.GetRequiredService<IOptions<BatonOptions>>().Value;
-    return new BatonOptionsSnapshot(options.ShiftStart, options.Seed);
+    return new BatonOptionsSnapshot(options.ShiftStart, options.Seed, options.TreatmentDelayHours);
 });
 builder.Services.AddSingleton<TrySessions>();
 builder.Services.AddSingleton<Baton.Api.Live.WardChangeFeed>();
@@ -160,7 +160,7 @@ app.MapPost("/api/try/{id}/actions", (string id, TryActionRequest body, TrySessi
     var action = new Baton.Scenarios.TryAction(body.Kind, body.At.ToOffset(settings.ShiftStart.Offset), body.Text, body.Tier);
     if (tries.Add(session, action) is { } broken)
     {
-        return Results.Problem(broken, statusCode: StatusCodes.Status400BadRequest, title: "Action not allowed");
+        return Results.Problem(broken.Message, statusCode: StatusCodes.Status400BadRequest, title: "Action not allowed", type: $"urn:baton:try:{broken.Code}");
     }
 
     feed.Publish(new Baton.Api.Live.WardChange("Try", session.PatientId, session.Id, action.At));
@@ -330,6 +330,10 @@ public static partial class TimeQuery
     [GeneratedRegex(@"(Z|[+-]\d{2}:?\d{2})$")]
     private static partial Regex OffsetSuffix();
 
+    /// <summary>An unencoded '+' of the offset arrives as a space: "…T23:30:00 03:00". Nothing else is rewritten.</summary>
+    [GeneratedRegex(@"^(.*T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?) (\d{2}:?\d{2})$")]
+    private static partial Regex UnencodedPlus();
+
     public static bool TryParse(string? raw, DateTimeOffset defaultAt, out DateTimeOffset at, out string? error)
     {
         at = defaultAt;
@@ -339,7 +343,7 @@ public static partial class TimeQuery
             return true;
         }
 
-        var text = raw.Trim().Replace(' ', '+');
+        var text = UnencodedPlus().Replace(raw.Trim(), "$1+$2");
         if (!OffsetSuffix().IsMatch(text))
         {
             error = "'at' must include a time zone offset, for example 2026-11-23T23:30:00+03:00.";
